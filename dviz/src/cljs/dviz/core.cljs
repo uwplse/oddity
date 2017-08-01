@@ -5,7 +5,8 @@
               [vomnibus.color-brewer :as cb]
               [dviz.circles :as c]
               [goog.string :as gs]
-              [goog.string.format]))
+              [goog.string.format]
+              [cljsjs.react-transition-group]))
 
 ;; Views
 ;; -------------------------
@@ -50,32 +51,30 @@
    {:stroke "gray" :fill "gray"}
    (gs/format "%s %s" (:type message) (:body message))])
 
-(def ctg (reagent/adapt-react-class (aget js/React "addons" "CSSTransitionGroup")))
+(def transition-group (reagent/adapt-react-class js/ReactTransitionGroup.TransitionGroup))
 
 (defn server-position [id]
   (let [angle (server-angle id)]
     (c/angle server-circle angle)))
 
-(defn message [index message]
-  (.log js/console (gs/format "Outer %s: %s" index message))
-  (let [mouse-over (reagent/atom false)
-        prev-index (atom nil)
-        is-new (reagent/atom true)]
-    (fn [index message]
-      (if @is-new
-        (reagent/next-tick #(reset! is-new false)))
-      (.log js/console (gs/format "Inner %s: %s" index message))
-      [:g {:transform (if @is-new
-                        (let [from-pos (server-position (:from message))
-                              to-pos (server-position (:to message))]
-                          (translate (- (:x from-pos) (:x to-pos))
-                                     (- (:y from-pos) (:y to-pos))))
-                        (translate 5 (* index -40)))
+(defn message [index message status]
+  (.log js/console "Outer message called")
+  (let [mouse-over (reagent/atom false)]
+    (fn [index message status]
+      (.log js/console (gs/format "Inner %s: %s %s" index message status))
+      [:g {:transform
+           (case status
+             :new (let [from-pos (server-position (:from message))
+                        to-pos (server-position (:to message))]
+                    (translate (- (:x from-pos) (:x to-pos))
+                               (- (:y from-pos) (:y to-pos))))
+             :stable (translate 5 (* index -40))
+             :deleted (translate 50 0))
            :fill (server-color (:from message))
            :stroke (server-color (:from message))
            :style {:transition "transform 0.5s ease-out"}
            ;; (if @is-new {:transform "translateY(100px)"}
-                  ;;     {:transition "transform 0.5s ease-out"})
+           ;;     {:transition "transform 0.5s ease-out"})
            }
        [:rect {:width 40 :height 30
                :on-mouse-over #(reset! mouse-over true)
@@ -87,6 +86,36 @@
        (if @mouse-over
          [:g {:transform (translate 50 20)}
           [display-message-body message]])])))
+
+
+(def message-wrapper
+  (reagent/create-class
+   {:get-initial-state (fn [] {:status  :new})
+    :component-will-appear (fn [cb]
+                             (this-as this
+                               (.log js/console "will-appear")
+                               (reagent/replace-state this {:status :stable})
+                               (cb)))
+    :component-will-enter (fn [cb]
+                            (this-as this
+                              (.log js/console "will-enter")
+                              (reagent/replace-state this {:status :stable})
+                              (cb)))
+
+    :component-will-leave (fn [cb]
+                            (this-as this
+                              (.log js/console "will-leave")
+                              (reagent/replace-state this {:status :deleted})
+                              (js/setTimeout cb 500)))
+    :component-will-mount (fn [this]
+                            (.log js/console (reagent/current-component))
+                            (.log js/console (reagent/state this))
+                            (.log js/console "will-mount"))
+    :display-name "message-wrapper"
+    :reagent-render
+    (fn [index m]
+      [message index m (:status (reagent/state (reagent/current-component)))])}))
+
 
 (defn component-map-indexed
   ([f l] (component-map-indexed f l (fn [index item] index)))
@@ -101,10 +130,9 @@
      [:text {:x 60} name]
      [:line {:x1 0 :x2 50 :y1 0 :y2 0 :stroke-width 10}]
      [:g {:transform (translate 0 -40)}   ; inbox
-      [ctg {:transitionName "message" :component "g"
-            :transitionEnterTimeout 500 :transitionLeaveTimeout 500}
-       (component-map-indexed message (get-in @state [:messages id])
-                              (fn [id m] [m]))]]]))
+      [transition-group {:component "g"}
+       (doall (map-indexed (fn [index m] ^{:key m} [message-wrapper index m])
+                           (get-in @state [:messages id])))]]]))
 
 (defn home-page []
   [:div [:h2 "DVIZ"]
