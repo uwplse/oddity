@@ -69,8 +69,6 @@
            :fill (server-color (:from message))
            :stroke (server-color (:from message))
            :style {:transition "transform 0.5s ease-out"}
-           ;; (if @is-new {:transform "translateY(100px)"}
-           ;;     {:transition "transform 0.5s ease-out"})
            }
        [:rect {:width 40 :height 30
                :on-mouse-over #(reset! inspect message)
