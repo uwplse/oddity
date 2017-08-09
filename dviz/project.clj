@@ -19,7 +19,8 @@
                  [secretary "1.2.3"]
                  [venantius/accountant "0.2.0"
                   :exclusions [org.clojure/tools.reader]]
-                 [com.keminglabs/vomnibus "0.3.2"]]
+                 [com.keminglabs/vomnibus "0.3.2"]
+                 [data-frisk-reagent "0.4.5"]]
 
   :plugins [[lein-environ "1.0.2"]
             [lein-cljsbuild "1.1.5"]

@@ -6,7 +6,8 @@
               [dviz.circles :as c]
               [goog.string :as gs]
               [goog.string.format]
-              [cljsjs.react-transition-group]))
+              [cljsjs.react-transition-group]
+              [datafrisk.core :as df]))
 
 ;; Views
 ;; -------------------------
@@ -15,8 +16,8 @@
   (gs/format "translate(%d %d)" x y))
 
 
-(def state (reagent/atom {:servers ["1" "2" "3"]
-                  :messages {0 [{:from 1 :to 0 :type "p1a" :body {:bal 1}}]}}))
+(def state (reagent/atom {:servers [ "1" "2" "3"]}))
+(def inspect (reagent/atom nil))
 
 (defn add-message [from to type body]
   (swap! state update-in [:messages to] #(vec (conj % {:from from :to to :type type :body body}))))
@@ -46,11 +47,6 @@
                  cb/Dark2-8)]
     (nth colors id)))
 
-(defn display-message-body [message]
-  [:text
-   {:stroke "gray" :fill "gray"}
-   (gs/format "%s %s" (:type message) (:body message))])
-
 (def transition-group (reagent/adapt-react-class js/ReactTransitionGroup.TransitionGroup))
 
 (defn server-position [id]
@@ -66,7 +62,7 @@
            (case status
              :new (let [from-pos (server-position (:from message))
                         to-pos (server-position (:to message))]
-                    (translate (- (:x from-pos) (:x to-pos))
+                    (translate (- (:x from-pos) (- (:x to-pos) 80))
                                (- (:y from-pos) (:y to-pos))))
              :stable (translate 5 (* index -40))
              :deleted (translate 50 0))
@@ -77,15 +73,11 @@
            ;;     {:transition "transform 0.5s ease-out"})
            }
        [:rect {:width 40 :height 30
-               :on-mouse-over #(reset! mouse-over true)
-               :on-mouse-out #(reset! mouse-over false)
+               :on-mouse-over #(reset! inspect message)
                :on-click #(drop-message (:to message) index)}]
        [:text {:text-anchor "end"
                :transform (translate -10 20)}
-        (:type message)]
-       (if @mouse-over
-         [:g {:transform (translate 50 20)}
-          [display-message-body message]])])))
+        (:type message)]])))
 
 
 (def message-wrapper
@@ -136,10 +128,31 @@
        (doall (map-indexed (fn [index m] ^{:key m} [message-wrapper index m])
                            (get-in @state [:messages id])))]]]))
 
+(defn message-adder [n]
+  (let [counter (atom 0)]
+    (fn [n] 
+      [:button {:on-click
+                (fn []
+                  (let [from (rand-int n)
+                        to (rand-int n)
+                        type "m"
+                        body (str @counter)]
+                    (add-message from to type body)
+                    (swap! counter inc)))}
+       "Add message"])))
+
+(defn inspector []
+  [df/DataFriskView @inspect])
+
 (defn home-page []
-  [:div [:h2 "DVIZ"]
-   [:svg {:width 800 :height 600 :style {:border "1px solid black"}}
-    (component-map-indexed server (:servers @state))]])
+  [:div
+   [:h2 "DVIZ"]
+   [:svg {:xmlnsXlink "http://www.w3.org/1999/xlink"
+          :width 800 :height 600 :style {:border "1px solid black"}}
+    (component-map-indexed server (:servers @state))]
+   [inspector]
+   [:br]
+   [message-adder (count (:servers @state))]])
 
 ;; -------------------------
 ;; Routes
