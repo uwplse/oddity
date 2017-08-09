@@ -127,9 +127,11 @@
     [:g {:transform (translate (:x pos) (:y pos))
          :fill (server-color id)
          :stroke (server-color id)}
-     [:text {:x 60} name]
-     [:line {:x1 0 :x2 50 :y1 0 :y2 0 :stroke-width 10}]
-     [:g {:transform (translate 0 -40)}   ; inbox
+     [:text {:x -20} name]
+     [:line {:x1 -35 :x2 -35 :y1 -40 :y2 40 :stroke-dasharray "5,5"}]
+     [:image {:xlinkHref "images/server.png" :x 0 :y -10 :width 50}]
+     [:line {:x1 -100 :x2 -50 :y1 0 :y2 0 :stroke-width 10}]
+     [:g {:transform (translate -100 -40)}   ; inbox
       [transition-group {:component "g"}
        (doall (map-indexed (fn [index m] ^{:key m} [message-wrapper index m])
                            (get-in @state [:messages id])))]]]))
