@@ -12,7 +12,8 @@
 
 (defn event-source-static-example []
   (StaticEventSource. 
-   [{:debug "1" :send-messages [{:from 0 :to 1 :type "p1a" :body {:bal 1 :id 0}}]}
+   [{:debug "init" :reset {:servers ["1" "2" "3"]}}
+    {:debug "1" :send-messages [{:from 0 :to 1 :type "p1a" :body {:bal 1 :id 0}}]}
     {:debug "2" :send-messages [{:from 0 :to 1 :type "p1a" :body {:bal 1 :id 0}}]}
     {:debug "3" :deliver-message {:from 0 :to 1 :type "p1a" :body {:bal 1 :id 0}}}
     {:debug "4" :send-messages [{:from 0 :to 1 :type "p1a" :body {:bal 1 :id 0}}]}

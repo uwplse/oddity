@@ -17,10 +17,10 @@
   (gs/format "translate(%d %d)" x y))
 
 
-(def events (reagent/atom (event-source/event-source-static-example)))
-(def state (reagent/atom {:servers [ "1" "2" "3"]}))
-(def inspect (reagent/atom nil))
-(def message-id-counter (reagent/atom 0))
+(defonce events (reagent/atom (event-source/event-source-static-example)))
+(defonce state (reagent/atom nil))
+(defonce inspect (reagent/atom nil))
+(defonce message-id-counter (reagent/atom 0))
 
 (defn add-message [m]
   (.log js/console "adding message")
@@ -45,17 +45,22 @@
 
 (defn do-next-event []
   (when-let [[ev evs] (event-source/next-event @events)]
-    ; process delivered messages
+    ;; process debug
+    (when-let [debug (:debug ev)]
+      (.log js/console (gs/format "Processing event: %s %s" debug ev)))
+    ;; process reset
+    (when-let [reset (:reset ev)]
+      (reset! state reset))
+    ;; process delivered messages
     (when-let [m (:deliver-message ev)]
       (drop-message m))
-    ;process send messages
+    ;; process state updates
+    (when-let [[id & updates] (:update-state ev)]
+      (doseq [[path val] updates] (update-server-state id path val)))
+    ;; process send messages
     (when-let [ms (:send-messages ev)]
       (.log js/console (gs/format "adding messages %s" ms))
       (doseq [m ms] (add-message m)))
-    (when-let [[id & updates] (:update-state ev)]
-      (doseq [[path val] updates] (update-server-state id path val)))
-    (when-let [debug (:debug ev)]
-      (.log js/console (gs/format "Processing event: %s %s" debug ev)))
     (reset! events evs)))
 
 (def server-circle (c/circle 400 400 200))
