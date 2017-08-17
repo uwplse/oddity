@@ -152,7 +152,8 @@
          :stroke (server-color id)}
      [:text {:x -20} name]
      [:line {:x1 -35 :x2 -35 :y1 -40 :y2 40 :stroke-dasharray "5,5"}]
-     [:image {:xlinkHref "images/server.png" :x 0 :y -10 :width 50}]
+     [:image {:xlinkHref "images/server.png" :x 0 :y -10 :width 50
+              :on-mouse-over #(reset! inspect (get-in @state [:server-state id]))}]
      [:line {:x1 -100 :x2 -50 :y1 0 :y2 0 :stroke-width 10}]
      [:g {:transform (translate -100 -40)}   ; inbox
       [transition-group {:component "g"}
