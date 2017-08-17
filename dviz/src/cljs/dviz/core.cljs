@@ -4,6 +4,7 @@
               [accountant.core :as accountant]
               [vomnibus.color-brewer :as cb]
               [dviz.circles :as c]
+              [dviz.event-source :as event-source]
               [goog.string :as gs]
               [goog.string.format]
               [cljsjs.react-transition-group]
@@ -16,14 +17,46 @@
   (gs/format "translate(%d %d)" x y))
 
 
+(def events (reagent/atom (event-source/event-source-static-example)))
 (def state (reagent/atom {:servers [ "1" "2" "3"]}))
 (def inspect (reagent/atom nil))
+(def message-id-counter (reagent/atom 0))
 
-(defn add-message [from to type body]
-  (swap! state update-in [:messages to] #(vec (conj % {:from from :to to :type type :body body}))))
+(defn add-message [m]
+  (.log js/console "adding message")
+  (let [id (swap! message-id-counter inc)
+        m (merge m {:id id})]
+    (swap! state update-in [:messages (:to m)] #(vec (conj % m)))))
 
-(defn drop-message [to id]
-  (swap! state update-in [:messages to] #(vec (concat (subvec % 0 id) (subvec % (inc id))))))
+(defn update-server-state [id path val]
+  (swap! state update-in (concat [:server-state id] path) val))
+
+(defn filter-one [pred coll]
+  (when-let [x (first coll)]
+    (if (pred x)
+      (filter-one pred (rest coll))
+      (rest coll))))
+
+(defn fields-match [fields m1 m2]
+  (every? #(= (get m1 %) (get m2 %)) fields))
+
+(defn drop-message [message]
+  (swap! state update-in [:messages (:to message)] #(vec (filter-one (partial fields-match [:from :to :type :body] message) %))))
+
+(defn do-next-event []
+  (when-let [[ev evs] (event-source/next-event @events)]
+    ; process delivered messages
+    (when-let [m (:deliver-message ev)]
+      (drop-message m))
+    ;process send messages
+    (when-let [ms (:send-messages ev)]
+      (.log js/console (gs/format "adding messages %s" ms))
+      (doseq [m ms] (add-message m)))
+    (when-let [[id val path] (:update-state ev)]
+      (update-server-state id path val))
+    (when-let [debug (:debug ev)]
+      (.log js/console (gs/format "Processing event: %s %s" debug ev)))
+    (reset! events evs)))
 
 (def server-circle (c/circle 400 400 200))
 
@@ -72,7 +105,7 @@
            }
        [:rect {:width 40 :height 30
                :on-mouse-over #(reset! inspect message)
-               :on-click #(drop-message (:to message) index)}]
+               :on-click #(drop-message message )}]
        [:text {:text-anchor "end"
                :transform (translate -10 20)}
         (:type message)]])))
@@ -126,18 +159,13 @@
        (doall (map-indexed (fn [index m] ^{:key m} [message-wrapper index m])
                            (get-in @state [:messages id])))]]]))
 
-(defn message-adder [n]
-  (let [counter (atom 0)]
+(defn next-event-button []
+  (let []
     (fn [n] 
       [:button {:on-click
                 (fn []
-                  (let [from (rand-int n)
-                        to (rand-int n)
-                        type "m"
-                        body (str @counter)]
-                    (add-message from to type body)
-                    (swap! counter inc)))}
-       "Add message"])))
+                  (do-next-event))}
+       "Next event"])))
 
 (defn inspector []
   [df/DataFriskView @inspect])
@@ -150,7 +178,7 @@
     (component-map-indexed server (:servers @state))]
    [inspector]
    [:br]
-   [message-adder (count (:servers @state))]])
+   [next-event-button]])
 
 ;; -------------------------
 ;; Routes
