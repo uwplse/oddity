@@ -52,8 +52,8 @@
     (when-let [ms (:send-messages ev)]
       (.log js/console (gs/format "adding messages %s" ms))
       (doseq [m ms] (add-message m)))
-    (when-let [[id val & path] (:update-state ev)]
-      (update-server-state id path val))
+    (when-let [[id & updates] (:update-state ev)]
+      (doseq [[path val] updates] (update-server-state id path val)))
     (when-let [debug (:debug ev)]
       (.log js/console (gs/format "Processing event: %s %s" debug ev)))
     (reset! events evs)))
