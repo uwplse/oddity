@@ -10,13 +10,6 @@
     (when-let [e (first evs)]
       [e (StaticEventSource. (rest evs))])))
 
-(comment
-  {:debug "debug text"
-   :deliver-message {:from from :to to :type type :body body}
-   :update-state [id value path1 path2 ...]
-   :send-messages [{:from from :to to :type type :body body} ...]}
-  )
-
 (defn event-source-static-example []
   (StaticEventSource. 
    [{:debug "1" :send-messages [{:from 0 :to 1 :type "p1a" :body {:bal 1 :id 0}}]}
