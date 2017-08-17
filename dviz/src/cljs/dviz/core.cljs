@@ -167,6 +167,16 @@
                   (do-next-event))}
        "Next event"])))
 
+
+(defn reset-events-button []
+  (let []
+    (fn [n] 
+      [:button {:on-click
+                (fn []
+                  (reset! events (event-source/event-source-static-example)))}
+       "Reset events"])))
+
+
 (defn inspector []
   [df/DataFriskView @inspect])
 
@@ -178,7 +188,9 @@
     (component-map-indexed server (:servers @state))]
    [inspector]
    [:br]
-   [next-event-button]])
+   [next-event-button]
+   [reset-events-button]
+   ])
 
 ;; -------------------------
 ;; Routes
