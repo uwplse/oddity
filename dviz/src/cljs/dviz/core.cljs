@@ -116,24 +116,17 @@
    {:get-initial-state (fn [] {:status  :new})
     :component-will-appear (fn [cb]
                              (this-as this
-                               (.log js/console "will-appear")
                                (reagent/replace-state this {:status :stable})
                                (cb)))
     :component-will-enter (fn [cb]
                             (this-as this
-                              (.log js/console "will-enter")
                               (reagent/replace-state this {:status :stable})
                               (cb)))
 
     :component-will-leave (fn [cb]
                             (this-as this
-                              (.log js/console "will-leave")
                               (reagent/replace-state this {:status :deleted})
                               (js/setTimeout cb 500)))
-    :component-will-mount (fn [this]
-                            (.log js/console (reagent/current-component))
-                            (.log js/console (reagent/state this))
-                            (.log js/console "will-mount"))
     :display-name "message-wrapper"
     :reagent-render
     (fn [index m]
