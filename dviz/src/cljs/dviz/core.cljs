@@ -29,19 +29,19 @@
     (swap! state update-in [:messages (:to m)] #(vec (conj % m)))))
 
 (defn update-server-state [id path val]
-  (swap! state update-in (concat [:server-state id] path) val))
+  (swap! state assoc-in (concat [:server-state id] path) val))
 
-(defn filter-one [pred coll]
+(defn remove-one [pred coll]
   (when-let [x (first coll)]
     (if (pred x)
-      (filter-one pred (rest coll))
-      (rest coll))))
+      (rest coll)
+      (cons x (remove-one pred (rest coll))))))
 
 (defn fields-match [fields m1 m2]
   (every? #(= (get m1 %) (get m2 %)) fields))
 
 (defn drop-message [message]
-  (swap! state update-in [:messages (:to message)] #(vec (filter-one (partial fields-match [:from :to :type :body] message) %))))
+  (swap! state update-in [:messages (:to message)] #(vec (remove-one (partial fields-match [:from :to :type :body] message) %))))
 
 (defn do-next-event []
   (when-let [[ev evs] (event-source/next-event @events)]
@@ -52,7 +52,7 @@
     (when-let [ms (:send-messages ev)]
       (.log js/console (gs/format "adding messages %s" ms))
       (doseq [m ms] (add-message m)))
-    (when-let [[id val path] (:update-state ev)]
+    (when-let [[id val & path] (:update-state ev)]
       (update-server-state id path val))
     (when-let [debug (:debug ev)]
       (.log js/console (gs/format "Processing event: %s %s" debug ev)))
