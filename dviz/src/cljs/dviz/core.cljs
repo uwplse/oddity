@@ -29,7 +29,9 @@
     (swap! state update-in [:messages (:to m)] #(vec (conj % m)))))
 
 (defn update-server-state [id path val]
-  (swap! state assoc-in (concat [:server-state id] path) val))
+  (swap! state (fn [s]
+                 (assoc-in s (concat [:server-state id] path) val)
+                 (update-in s [:server-log id] #(vec (conj % [path val]))))))
 
 (defn remove-one [pred coll]
   (when-let [x (first coll)]
@@ -127,7 +129,6 @@
                             (this-as this
                               (reagent/replace-state this {:status :stable})
                               (cb)))
-
     :component-will-leave (fn [cb]
                             (this-as this
                               (reagent/replace-state this {:status :deleted})
@@ -137,6 +138,34 @@
     (fn [index m]
       [message index m (:status (reagent/state (reagent/current-component)))])}))
 
+(defn server-log-entry [[path val] status]
+  (fn [[path val] status]
+    [:g {:transform
+           (case status
+             :new (translate 0 0)
+             :stable (translate 0 -80))
+         :style {:opacity (case status :new "1.0" :stable "0.0")
+                 :transition "all 5s ease-out"
+                 :transition-property "transform, opacity"}
+         }
+     [:text
+      (gs/format "%s = %s" (clojure.string/join "." (map name path)) val)]]))
+
+(def server-log-entry-wrapper
+  (reagent/create-class
+   {:get-initial-state (fn [] {:status  :new})
+    :component-will-appear (fn [cb]
+                             (this-as this
+                               (reagent/replace-state this {:status :stable})
+                               (cb)))
+    :component-will-enter (fn [cb]
+                            (this-as this
+                              (reagent/replace-state this {:status :stable})
+                              (cb)))
+    :display-name "server-log-wrapper"
+    :reagent-render
+    (fn [upd]
+      [server-log-entry upd (:status (reagent/state (reagent/current-component)))])}))
 
 (defn component-map-indexed
   ([f l] (component-map-indexed f l (fn [index item] index)))
@@ -144,19 +173,24 @@
    (doall (map-indexed (fn [index item] ^{:key (key index item)} [f index item]) l))))
 
 (defn server [id name]
-  (let [pos (server-position id)]
+  (let [pos (server-position id)
+        server-state (get-in @state [:server-state id])]
     [:g {:transform (translate (:x pos) (:y pos))
          :fill (server-color id)
          :stroke (server-color id)}
      [:text {:x -20} name]
      [:line {:x1 -35 :x2 -35 :y1 -40 :y2 40 :stroke-dasharray "5,5"}]
      [:image {:xlinkHref "images/server.png" :x 0 :y -10 :width 50
-              :on-mouse-over #(reset! inspect (get-in @state [:server-state id]))}]
+              :on-mouse-over #(reset! inspect server-state)}]
      [:line {:x1 -100 :x2 -50 :y1 0 :y2 0 :stroke-width 10}]
      [:g {:transform (translate -100 -40)}   ; inbox
       [transition-group {:component "g"}
        (doall (map-indexed (fn [index m] ^{:key m} [message-wrapper index m])
-                           (get-in @state [:messages id])))]]]))
+                           (get-in @state [:messages id])))]]
+     [:g {:transform (translate 0 -40)}   ; log
+      [transition-group {:component "g"}
+       (doall (map-indexed (fn [index upd] ^{:key index} [server-log-entry-wrapper upd])
+                           (get-in @state [:server-log id])))]]]))
 
 (defn next-event-button []
   (let []
