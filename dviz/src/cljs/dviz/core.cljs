@@ -1,14 +1,14 @@
 (ns dviz.core
-    (:require [reagent.core :as reagent]
-              [secretary.core :as secretary :include-macros true]
-              [accountant.core :as accountant]
-              [vomnibus.color-brewer :as cb]
-              [dviz.circles :as c]
-              [dviz.event-source :as event-source]
-              [goog.string :as gs]
-              [goog.string.format]
-              [cljsjs.react-transition-group]
-              [datafrisk.core :as df]))
+  (:require [reagent.core :as reagent]
+            [secretary.core :as secretary :include-macros true]
+            [accountant.core :as accountant]
+            [vomnibus.color-brewer :as cb]
+            [dviz.circles :as c]
+            [dviz.event-source :as event-source]
+            [goog.string :as gs]
+            [goog.string.format]
+            [cljsjs.react-transition-group]
+            [datafrisk.core :as df]))
 
 ;; Views
 ;; -------------------------
@@ -152,9 +152,9 @@
 (defn server-log-entry [updates status]
   (fn [updates status]
     [:g {:transform
-           (case status
-             :new (translate 0 0)
-             :stable (translate 0 -80))
+         (case status
+           :new (translate 0 0)
+           :stable (translate 0 -80))
          :style {:opacity (case status :new "1.0" :stable "0.0")
                  :transition "all 3s ease-out"
                  :transition-property "transform, opacity"}
@@ -251,11 +251,11 @@
 
 (defn init! []
   (accountant/configure-navigation!
-    {:nav-handler
-     (fn [path]
-       (secretary/dispatch! path))
-     :path-exists?
-     (fn [path]
-       (secretary/locate-route path))})
+   {:nav-handler
+    (fn [path]
+      (secretary/dispatch! path))
+    :path-exists?
+    (fn [path]
+      (secretary/locate-route path))})
   (accountant/dispatch-current!)
   (mount-root))
