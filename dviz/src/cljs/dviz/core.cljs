@@ -30,8 +30,10 @@
 
 (defn update-server-state [id path val]
   (swap! state (fn [s]
-                 (assoc-in s (concat [:server-state id] path) val)
-                 (update-in s [:server-log id] #(vec (conj % [path val]))))))
+                 (assoc-in s (concat [:server-state id] path) val))))
+
+(defn update-server-log [id updates]
+  (swap! state update-in [:server-log id] #(vec (conj % updates))))
 
 (defn remove-one [pred coll]
   (when-let [x (first coll)]
@@ -58,7 +60,8 @@
       (drop-message m))
     ;; process state updates
     (when-let [[id & updates] (:update-state ev)]
-      (doseq [[path val] updates] (update-server-state id path val)))
+      (doseq [[path val] updates] (update-server-state id path val))
+      (update-server-log id updates))
     ;; process send messages
     (when-let [ms (:send-messages ev)]
       (.log js/console (gs/format "adding messages %s" ms))
@@ -138,18 +141,26 @@
     (fn [index m]
       [message index m (:status (reagent/state (reagent/current-component)))])}))
 
-(defn server-log-entry [[path val] status]
-  (fn [[path val] status]
+(defn server-log-entry-line [index [path val]]
+  [:tspan {:x "0" :dy "-1.2em"} (gs/format "%s = %s" (clojure.string/join "." (map name path)) val)])
+
+(defn component-map-indexed
+  ([f l] (component-map-indexed f l (fn [index item] index)))
+  ([f l key] 
+   (doall (map-indexed (fn [index item] ^{:key (key index item)} [f index item]) l))))
+
+(defn server-log-entry [updates status]
+  (fn [updates status]
     [:g {:transform
            (case status
              :new (translate 0 0)
              :stable (translate 0 -80))
          :style {:opacity (case status :new "1.0" :stable "0.0")
-                 :transition "all 5s ease-out"
+                 :transition "all 3s ease-out"
                  :transition-property "transform, opacity"}
          }
      [:text
-      (gs/format "%s = %s" (clojure.string/join "." (map name path)) val)]]))
+      (component-map-indexed server-log-entry-line updates)]]))
 
 (def server-log-entry-wrapper
   (reagent/create-class
@@ -167,10 +178,6 @@
     (fn [upd]
       [server-log-entry upd (:status (reagent/state (reagent/current-component)))])}))
 
-(defn component-map-indexed
-  ([f l] (component-map-indexed f l (fn [index item] index)))
-  ([f l key] 
-   (doall (map-indexed (fn [index item] ^{:key (key index item)} [f index item]) l))))
 
 (defn server [id name]
   (let [pos (server-position id)
