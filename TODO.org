@@ -1,0 +1,5 @@
+* Animation
+** TODO Distinguish between dropped and delivered messages
+** TODO Implement history view
+* Simulation
+** TODO Implement basic simulation
