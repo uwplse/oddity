@@ -5,6 +5,7 @@
             [vomnibus.color-brewer :as cb]
             [dviz.circles :as c]
             [dviz.event-source :as event-source]
+            [dviz.util :refer [remove-one]]
             [goog.string :as gs]
             [goog.string.format]
             [cljsjs.react-transition-group]
@@ -34,12 +35,6 @@
 
 (defn update-server-log [id updates]
   (swap! state update-in [:server-log id] #(vec (conj % updates))))
-
-(defn remove-one [pred coll]
-  (when-let [x (first coll)]
-    (if (pred x)
-      (rest coll)
-      (cons x (remove-one pred (rest coll))))))
 
 (defn fields-match [fields m1 m2]
   (every? #(= (get m1 %) (get m2 %)) fields))
