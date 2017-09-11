@@ -100,6 +100,7 @@
                                   [org.clojure/tools.nrepl "0.2.13"]
                                   [com.cemerick/piggieback "0.2.2"]
                                   [pjstadig/humane-test-output "0.8.2"]
+                                  [org.clojure/test.check "0.9.0"]
                                   ]
 
                    :source-paths ["env/dev/clj"]

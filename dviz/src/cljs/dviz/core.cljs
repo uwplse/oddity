@@ -6,6 +6,8 @@
             [dviz.circles :as c]
             [dviz.event-source :as event-source]
             [dviz.util :refer [remove-one]]
+            [dviz.sim]
+            [dviz.paxos :refer [paxos-sim]]
             [goog.string :as gs]
             [goog.string.format]
             [cljsjs.react-transition-group]
@@ -20,6 +22,8 @@
 
 (defonce events (reagent/atom (event-source/event-source-static-example)))
 (defonce state (reagent/atom nil))
+(defonce event-history (reagent/atom [{:state @state :events @events}]))
+(defonce selected-event-index (reagent/atom 0))
 (defonce inspect (reagent/atom nil))
 (defonce message-id-counter (reagent/atom 0))
 
@@ -44,12 +48,17 @@
 
 (defn do-next-event []
   (when-let [[ev evs] (event-source/next-event @events)]
+    (println ev)
     ;; process debug
     (when-let [debug (:debug ev)]
       (.log js/console (gs/format "Processing event: %s %s" debug ev)))
     ;; process reset
     (when-let [reset (:reset ev)]
-      (reset! state reset))
+      (println reset)
+      (doall (for [[k v] reset]
+               (do 
+                 (println k)
+                 (swap! state assoc k v)))))
     ;; process delivered messages
     (when-let [m (:deliver-message ev)]
       (drop-message m))
@@ -61,6 +70,12 @@
     (when-let [ms (:send-messages ev)]
       (.log js/console (gs/format "adding messages %s" ms))
       (doseq [m ms] (add-message m)))
+    (let [new-event-for-history {:state @state :events evs}]
+      (swap! selected-event-index inc)
+      (when-not (= new-event-for-history (get @event-history (inc @selected-event-index)))
+        (swap! event-history
+               (fn [evh]
+                 (vec (concat (take @selected-event-index evh) [new-event-for-history]))))))
     (reset! events evs)))
 
 (def server-circle (c/circle 400 400 200))
@@ -194,6 +209,31 @@
        (doall (map-indexed (fn [index upd] ^{:key index} [server-log-entry-wrapper upd])
                            (get-in @state [:server-log id])))]]]))
 
+(defn history-move [{new-state :state new-events :events} index]
+  (reset! state new-state)
+  (reset! events new-events)
+  (reset! selected-event-index index))
+
+(defn history-view-event [index event is-last]
+  [:g {:transform (translate (* 75 (inc index)) 50)
+       :fill "black"
+       :stroke "black"}
+   (if (not is-last)
+     [:line {:x1 0 :x2 75 :y1 0 :y2 0 :stroke-width 5 :stroke-dasharray "5,1"}])
+   [:circle {:cx 0 :cy 0 :r 20
+             :on-click #(history-move event index)
+             :stroke (if (= index @selected-event-index) "red" "black")
+             :stroke-width 5}]])
+
+(defn history-view []
+  [:svg {:xmlnsXlink "http://www.w3.org/1999/xlink"
+         :width 800 :height 100 :style {:border "1px solid black"}}
+   (doall (for [index (range (count @event-history))
+                :let [event (nth @event-history index)
+                      is-last (= index (- (count @event-history) 1))]]
+            ^{:key [index event]} [history-view-event index event is-last]))
+   ])
+
 (defn next-event-button []
   (let []
     (fn [n] 
@@ -209,7 +249,15 @@
       [:button {:on-click
                 (fn []
                   (reset! events (event-source/event-source-static-example)))}
-       "Reset events"])))
+       "Static events"])))
+
+(defn paxos-events-button []
+  (let []
+    (fn [n] 
+      [:button {:on-click
+                (fn []
+                  (reset! events (paxos-sim 3)))}
+       "Paxos events"])))
 
 
 (defn inspector []
@@ -217,14 +265,16 @@
 
 (defn home-page []
   [:div
-   [:h2 "DVIZ"]
    [:svg {:xmlnsXlink "http://www.w3.org/1999/xlink"
-          :width 800 :height 600 :style {:border "1px solid black"}}
+          :width 800 :height 600 :style {:border "1px solid black"}
+          :viewBox "0 0 800 600"}
     (component-map-indexed server (:servers @state))]
    [inspector]
    [:br]
    [next-event-button]
    [reset-events-button]
+   [paxos-events-button]
+   [history-view]
    ])
 
 ;; -------------------------
