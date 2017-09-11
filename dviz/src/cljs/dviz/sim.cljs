@@ -23,17 +23,18 @@
   (concat
    (for [m (:messages state)]
      [:deliver m])
-   (for [server-id (:servers state)
-         [precond _] (:extern handlers)
-         extern-name (precond server-id (get-in state [:server-state server-id]))]
-     [:extern {:to server-id :name extern-name}])))
+   (let [[precond _] (:extern handlers)]
+     (for [server-id (:servers state)
+           extern-name (precond server-id (get-in state [:server-state server-id]))]
+       [:extern {:to server-id :name extern-name}]))))
 
 (defn tag-messages [server-id messages]
   (for [m messages] (assoc m :from server-id)))
 
-(defn event [server-id state-updates new-messages]
-  {:send-messages (tag-messages server-id new-messages)
-   :update-state [server-id state-updates]})
+(defn event [servers server-id state-updates new-messages]
+  {:reset {:servers servers}
+   :send-messages (tag-messages server-id new-messages)
+   :update-state (concat [server-id] state-updates)})
 
 (defn update-state [state server-id state-updates new-messages]
   (as-> state state
@@ -47,19 +48,19 @@
         {:keys [from to type body]} message
         server-state (get-in state [:server-state to])
         [state-updates new-messages] ((:net-handler handlers) to from type body server-state)]
-    [(event to state-updates new-messages)
+    [(into (event (:servers state) to state-updates new-messages) {:deliver-message message})
      (update-state state to state-updates new-messages)]))
 
 (defn step-extern [handlers state extern]
   (let [{:keys [to name]} extern
         server-state (get-in state [:server-state to])
         [state-updates new-messages] ((second (:extern handlers)) to name server-state)]
-    [(event to state-updates new-messages)
+    [(event (:servers state) to state-updates new-messages)
      (update-state state to state-updates new-messages)]))
 
 (defn step [handlers state]
   (let [actions (possible-actions handlers state)
-        [action-type & action] (rand-nth actions)]
+        [action-type action] (rand-nth actions)]
     (case action-type
       :deliver (step-deliver handlers state action)
       :extern (step-extern handlers state action))))
