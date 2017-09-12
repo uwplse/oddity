@@ -78,7 +78,7 @@
                  (vec (concat (take @selected-event-index evh) [new-event-for-history]))))))
     (reset! events evs)))
 
-(def server-circle (c/circle 400 400 200))
+(def server-circle (c/circle 400 300 150))
 
 (defn server-angle [id]
   (+ 270 (* id (/ 360 (count (:servers @state))))))
