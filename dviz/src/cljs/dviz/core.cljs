@@ -274,8 +274,7 @@
    [next-event-button]
    [reset-events-button]
    [paxos-events-button]
-   [history-view]
-   ])
+   [history-view]])
 
 ;; -------------------------
 ;; Routes
