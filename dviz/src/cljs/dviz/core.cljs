@@ -7,6 +7,7 @@
             [dviz.event-source :as event-source]
             [dviz.util :refer [remove-one]]
             [dviz.sim]
+            [dviz.trees :as trees]
             [dviz.paxos :refer [paxos-sim]]
             [goog.string :as gs]
             [goog.string.format]
@@ -22,14 +23,13 @@
 
 (defonce events (reagent/atom (event-source/event-source-static-example)))
 (defonce state (reagent/atom nil))
-(defonce event-history (reagent/atom [{:state @state :events @events}]))
-(defonce selected-event-index (reagent/atom 0))
+(defonce event-history (reagent/atom (trees/root {:state @state :events @events})))
+(defonce selected-event-path (reagent/atom []))
 (defonce inspect (reagent/atom nil))
-(defonce message-id-counter (reagent/atom 0))
 
 (defn add-message [m]
   (.log js/console "adding message")
-  (let [id (swap! message-id-counter inc)
+  (let [id (:message-id-counter (swap! state update-in [:message-id-counter] inc))
         m (merge m {:id id})]
     (swap! state update-in [:messages (:to m)] #(vec (conj % m)))))
 
@@ -72,7 +72,7 @@
       (doseq [m ms] (add-message m)))
     (let [new-event-for-history {:state @state :events evs}]
       (swap! selected-event-index inc)
-      (when-not (= new-event-for-history (get @event-history (inc @selected-event-index)))
+      (when-not (= new-event-for-history (get @event-history @selected-event-index))
         (swap! event-history
                (fn [evh]
                  (vec (concat (take @selected-event-index evh) [new-event-for-history]))))))
@@ -209,30 +209,42 @@
        (doall (map-indexed (fn [index upd] ^{:key index} [server-log-entry-wrapper upd])
                            (get-in @state [:server-log id])))]]]))
 
-(defn history-move [{new-state :state new-events :events} index]
-  (reset! state new-state)
-  (reset! events new-events)
-  (reset! selected-event-index index))
+(defn history-move [index]
+  (let [{new-state :state new-events :events} (nth @event-history index)]
+    (reset! state new-state)
+    (reset! events new-events)
+    (reset! selected-event-index index)))
 
-(defn history-view-event [index event is-last]
-  [:g {:transform (translate (* 75 (inc index)) 50)
-       :fill "black"
-       :stroke "black"}
-   (if (not is-last)
-     [:line {:x1 0 :x2 75 :y1 0 :y2 0 :stroke-width 5 :stroke-dasharray "5,1"}])
-   [:circle {:cx 0 :cy 0 :r 20
-             :on-click #(history-move event index)
-             :stroke (if (= index @selected-event-index) "red" "black")
-             :stroke-width 5}]])
+(defn history-view-event [path [x y] event parent-position]
+  [:g {:fill "black" :stroke "black"}
+   (when-let [[parent-x parent-y] parent-position]
+     [:line {:x1 parent-x :x2 x :y1 parent-y :y2 y :stroke-width 5 :stroke-dasharray "5,1"}])
+   [:g {:transform (translate x y)}
+    [:circle {:cx 0 :cy 0 :r 20
+              :on-click #(history-move path)
+              :stroke (if (= path @selected-event-path) "red" "black")
+              :stroke-width 5}]]])
 
 (defn history-view []
-  [:svg {:xmlnsXlink "http://www.w3.org/1999/xlink"
-         :width 800 :height 100 :style {:border "1px solid black"}}
-   (doall (for [index (range (count @event-history))
-                :let [event (nth @event-history index)
-                      is-last (= index (- (count @event-history) 1))]]
-            ^{:key [index event]} [history-view-event index event is-last]))
-   ])
+  (let [xstart (reagent/atom 0)]
+    (fn []
+      [:div
+       [:button {:on-click #(swap! xstart - 20)
+                 :style {:width 10 :margin-right 14 :text-align "center"}} "<"]
+       [:svg {:xmlnsXlink "http://www.w3.org/1999/xlink"
+              :width 750 :height 100
+              :viewBox (gs/format "%d %d %d %d" @xstart 0 750 100)
+              :style {:border "1px solid black"}}
+        (let [layout (trees/tree-layout @event-history)]
+          (doall
+           (for [{:keys [position value path parent]} layout]
+             ^{:key [path value]} [history-view-event path position value parent])))
+        (doall (for [index (range (count @event-history))
+                     :let [event (nth @event-history index)
+                           is-last (= index (- (count @event-history) 1))]]
+                 ^{:key [index event]} [history-view-event index event is-last]))]
+       [:button {:on-click #(swap! xstart + 20)
+                 :style {:width 10 :margin-left 14 :text-align "center"}} ">"]])))
 
 (defn next-event-button []
   (let []
