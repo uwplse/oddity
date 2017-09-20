@@ -23,7 +23,7 @@
 
 (defonce events (reagent/atom (event-source/event-source-static-example)))
 (defonce state (reagent/atom nil))
-(defonce event-history (reagent/atom (trees/root {:state @state :events @events})))
+(defonce event-history (reagent/atom (trees/leaf {:state @state :events @events})))
 (defonce selected-event-path (reagent/atom []))
 (defonce inspect (reagent/atom nil))
 
@@ -45,6 +45,10 @@
 
 (defn drop-message [message]
   (swap! state update-in [:messages (:to message)] #(vec (remove-one (partial fields-match [:from :to :type :body] message) %))))
+
+(defn index-of [l v]
+  (let [i (.indexOf l v)]
+    (if (>= i 0) i nil)))
 
 (defn do-next-event []
   (when-let [[ev evs] (event-source/next-event @events)]
@@ -70,12 +74,19 @@
     (when-let [ms (:send-messages ev)]
       (.log js/console (gs/format "adding messages %s" ms))
       (doseq [m ms] (add-message m)))
+    ;; add event to history
     (let [new-event-for-history {:state @state :events evs}]
-      (swap! selected-event-index inc)
-      (when-not (= new-event-for-history (get @event-history @selected-event-index))
-        (swap! event-history
-               (fn [evh]
-                 (vec (concat (take @selected-event-index evh) [new-event-for-history]))))))
+      (let [next-events (map trees/root (trees/children (trees/get-path @event-history @selected-event-path)))]
+        (println "next events")
+        (println next-events)
+        (if-let [next-event-index (index-of next-events new-event-for-history)]
+          (swap! selected-event-path conj next-event-index)
+          (do
+            (println "here")
+            (let [[new-event-history new-selected-event-path]
+                  (trees/append-path @event-history @selected-event-path new-event-for-history)]
+              (reset! event-history new-event-history)
+              (reset! selected-event-path (vec new-selected-event-path)))))))
     (reset! events evs)))
 
 (def server-circle (c/circle 400 300 150))
@@ -209,11 +220,11 @@
        (doall (map-indexed (fn [index upd] ^{:key index} [server-log-entry-wrapper upd])
                            (get-in @state [:server-log id])))]]]))
 
-(defn history-move [index]
-  (let [{new-state :state new-events :events} (nth @event-history index)]
+(defn history-move [path]
+  (let [{new-state :state new-events :events} (trees/root (trees/get-path @event-history path))]
     (reset! state new-state)
     (reset! events new-events)
-    (reset! selected-event-index index)))
+    (reset! selected-event-path path)))
 
 (defn history-view-event [path [x y] event parent-position]
   [:g {:fill "black" :stroke "black"}
@@ -235,14 +246,11 @@
               :width 750 :height 100
               :viewBox (gs/format "%d %d %d %d" @xstart 0 750 100)
               :style {:border "1px solid black"}}
-        (let [layout (trees/tree-layout @event-history)]
-          (doall
-           (for [{:keys [position value path parent]} layout]
-             ^{:key [path value]} [history-view-event path position value parent])))
-        (doall (for [index (range (count @event-history))
-                     :let [event (nth @event-history index)
-                           is-last (= index (- (count @event-history) 1))]]
-                 ^{:key [index event]} [history-view-event index event is-last]))]
+        [:g {:transform (translate 50 50)}
+         (let [layout (trees/layout @event-history 75 -50)]
+           (doall
+            (for [{:keys [position value path parent]} layout]
+              ^{:key [path value]} [history-view-event path position value parent])))]]
        [:button {:on-click #(swap! xstart + 20)
                  :style {:width 10 :margin-left 14 :text-align "center"}} ">"]])))
 
