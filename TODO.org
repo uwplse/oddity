@@ -1,5 +1,13 @@
 * Animation
 ** TODO Distinguish between dropped and delivered messages
-** TODO Implement history view
+** DONE Implement history view
+** TODO Better msg/node state detail popup
+** TODO Trace upload
+** TODO Preview on hover in history view
 * Simulation
-** TODO Implement basic simulation
+** DONE Implement basic simulation
+** TODO Simulation editing
+** TODO Start simulation from trace
+* General
+** TODO Put demo on the web
+** TODO Update the writeup
