@@ -35,6 +35,17 @@
     tree
     (recur (nth (children tree) (first path)) (rest path))))
 
+(defn get-whole-path
+  ([tree path] (get-whole-path tree path []))
+  ([tree path acc]
+   (if (empty? path)
+     (conj acc (root tree))
+     (let [n (first path)
+           path' (rest path)
+           tree' (nth (children tree) n)
+           acc' (conj acc (root tree))]
+       (recur tree' path' acc')))))
+
 (defn layout
   "Takes a tree and layes it out, returning a list of maps:
   {:position [<x> <y>] :value <v> :path <path>}"
@@ -43,10 +54,16 @@
    (let [root-layout {:position [x y] :value (root tree) :path path :parent parent}]
      (cons root-layout
            (apply concat
-                  (for [index (range (count (children tree)))
-                        :let
-                        [child (nth (children tree) index)
-                         new-x (+ x dx)
-                         new-y (+ y (* index dy))
-                         new-path (conj path index)]]
-                    (layout child dx dy new-x new-y new-path [x y])))))))
+                  (loop [index 0
+                         child-layouts []
+                         next-y y]
+                    (if (>= index (count (children tree)))
+                      child-layouts
+                      (let [child (nth (children tree) index)
+                            new-x (+ x dx)
+                            new-y next-y
+                            new-path (conj path index)
+                            child-layout (layout child dx dy new-x new-y new-path [x y])
+                            max-y (apply min (for [{[descendant-x descendant-y] :position} child-layout]
+                                               descendant-y))]
+                        (recur (inc index) (conj child-layouts child-layout) (- max-y dy))))))))))
