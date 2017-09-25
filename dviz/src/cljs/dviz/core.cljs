@@ -168,8 +168,7 @@
            :stable (translate 0 -80))
          :style {:opacity (case status :new "1.0" :stable "0.0")
                  :transition "all 3s ease-out"
-                 :transition-property "transform, opacity"}
-         }
+                 :transition-property "transform, opacity"}}
      [:text
       (component-map-indexed server-log-entry-line updates)]]))
 
