@@ -237,12 +237,13 @@
         starting-mouse-x (reagent/atom nil)
         starting-mouse-y (reagent/atom nil)
         xstart-on-down (reagent/atom nil)
-        ystart-on-down (reagent/atom nil)]
+        ystart-on-down (reagent/atom nil)
+        zoom (reagent/atom 1)]
     (fn []
       [:div
        [:svg {:xmlnsXlink "http://www.w3.org/1999/xlink"
-              :width 800 :height 100
-              :viewBox (gs/format "%d %d %d %d" @xstart @ystart 800 100)
+              :width 750 :height 100
+              :viewBox (gs/format "%d %d %d %d" @xstart @ystart (* 750 @zoom) (* 100 @zoom))
               :style {:border "1px solid black"}
               :on-mouse-down (fn [e]
                                (reset! is-mouse-down true)
@@ -265,7 +266,9 @@
              (for [{:keys [position value path parent]} layout]
                ^{:key [path value :line]} [history-view-event-line path position value parent])
              (for [{:keys [position value path parent]} layout]
-               ^{:key [path value]} [history-view-event path position value parent]))))]]])))
+               ^{:key [path value]} [history-view-event path position value parent]))))]]
+       [:button {:on-click #(swap! zoom - .1)} "+"]
+       [:button {:on-click #(swap! zoom + .1)} "-"]])))
 
 (defn next-event-button []
   (let []
