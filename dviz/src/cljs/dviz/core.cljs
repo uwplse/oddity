@@ -216,15 +216,19 @@
     (reset! events new-events)
     (reset! selected-event-path path)))
 
-(defn history-view-event [path [x y] event parent-position]
+(defn history-view-event-line [path [x y] event parent-position]
   [:g {:fill "black" :stroke "black"}
    (when-let [[parent-x parent-y] parent-position]
-     [:line {:x1 parent-x :x2 x :y1 parent-y :y2 y :stroke-width 5 :stroke-dasharray "5,1" :z-index -5}])
+     [:line {:x1 parent-x :x2 x :y1 parent-y :y2 y :stroke-width 5 :stroke-dasharray "5,1" :style {:z-index -5}}])])
+
+(defn history-view-event [path [x y] event parent-position]
+  [:g {:fill "black" :stroke "black"}
    [:g {:transform (translate x y)}
     [:circle {:cx 0 :cy 0 :r 20
               :on-click #(history-move path)
               :stroke (if (= path @selected-event-path) "red" "black")
-              :stroke-width 5 :z-index 5}]]])
+              :stroke-width 5
+              :style {:z-index 5}}]]])
 
 (defn history-view []
   (let [xstart (reagent/atom 0)
@@ -257,8 +261,11 @@
         [:g {:transform (translate 50 50)}
          (let [layout (trees/layout @event-history 75 50)]
            (doall
-            (for [{:keys [position value path parent]} layout]
-              ^{:key [path value]} [history-view-event path position value parent])))]]])))
+            (concat 
+             (for [{:keys [position value path parent]} layout]
+               ^{:key [path value :line]} [history-view-event-line path position value parent])
+             (for [{:keys [position value path parent]} layout]
+               ^{:key [path value]} [history-view-event path position value parent]))))]]])))
 
 (defn next-event-button []
   (let []
