@@ -12,14 +12,14 @@
             [goog.string :as gs]
             [goog.string.format]
             [cljsjs.react-transition-group]
-            [datafrisk.core :as df]))
+            [datafrisk.core :as df]
+            [ajax.core :refer [GET POST]]))
 
 ;; Views
 ;; -------------------------
 
 (defn translate [x y]
   (gs/format "translate(%d %d)" x y))
-
 
 (defonce events (reagent/atom (event-source/event-source-static-example)))
 (defonce state (reagent/atom nil))
@@ -325,6 +325,20 @@
                    :padding "10px"}}
      [:span (pr-str value)]]))
 
+(defn trace-display []
+  (let [traces (reagent/atom [])
+        fetch-traces (fn [] (GET "/api/traces"
+                                 {:response-format :json
+                                  :handler (fn [resp]
+                                             (reset! traces (get resp "traces")))}))]
+    (fetch-traces)
+    (fn []
+      [:div
+       [:ul
+        (doall
+         (for [trace @traces]
+           [:li trace]))]])))
+
 (defn home-page []
   [:div {:style {:position "relative"}}
    [inspector]
@@ -336,7 +350,8 @@
    [next-event-button]
    [reset-events-button]
    [paxos-events-button]
-   [history-view]])
+   [history-view]
+   [trace-display]])
 
 ;; -------------------------
 ;; Routes

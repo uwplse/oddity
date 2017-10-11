@@ -22,7 +22,9 @@
                  [com.keminglabs/vomnibus "0.3.2"]
                  [data-frisk-reagent "0.4.5"]
                  [eval-soup "1.2.2"]
-                 [org.clojure/core.async "0.3.443"]]
+                 [org.clojure/core.async "0.3.443"]
+                 [cljs-ajax "0.7.2"]
+                 [metosin/compojure-api "2.0.0-alpha7"]]
 
   :plugins [[lein-environ "1.0.2"]
             [lein-cljsbuild "1.1.5"]

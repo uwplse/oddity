@@ -3,7 +3,8 @@
             [compojure.route :refer [not-found resources]]
             [hiccup.page :refer [include-js include-css html5]]
             [dviz.middleware :refer [wrap-middleware]]
-            [config.core :refer [env]]))
+            [config.core :refer [env]]
+            [dviz.api :refer [api-routes]]))
 
 (def mount-target
   [:div#app
@@ -26,8 +27,8 @@
      mount-target
      (include-js "/js/app.js")]))
 
-
 (defroutes routes
+  #'api-routes
   (GET "/" [] (loading-page))
   (GET "/about" [] (loading-page))
   
