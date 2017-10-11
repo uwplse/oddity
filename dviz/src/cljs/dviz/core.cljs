@@ -83,8 +83,8 @@
 
 (def server-circle (c/circle 400 300 150))
 
-(defn server-angle [id]
-  (+ 270 (* id (/ 360 (count (:servers @state))))))
+(defn server-angle [state id]
+  (+ 270 (* id (/ 360 (count (:servers state))))))
 
 (def server-colors [cb/Dark2-3 ; 1
                     cb/Dark2-3 ; 2
@@ -96,7 +96,7 @@
                     cb/Dark2-8 ; 8
                     ])
 
-(defn server-color [id]
+(defn server-color [state id]
   (let [nservers (count (:servers state))
         colors (if (< 8 nservers)
                  (nth server-colors nservers)
@@ -105,28 +105,27 @@
 
 (def transition-group (reagent/adapt-react-class js/ReactTransitionGroup.TransitionGroup))
 
-(defn server-position [id]
-  (let [angle (server-angle id)]
+(defn server-position [state id]
+  (let [angle (server-angle state id)]
     (c/angle server-circle angle)))
 
-(defn message [index message status]
+(defn message [state index message [inbox-loc-x inbox-loc-y] status static]
   (let [mouse-over (reagent/atom false)]
-    (fn [index message status]
+    (fn [state index message inbox-loc status static]
       [:g {:transform
            (case status
-             :new (let [from-pos (server-position (:from message))
-                        to-pos (server-position (:to message))]
+             :new (let [from-pos (server-position state (:from message))
+                        to-pos (server-position state (:to message))]
                     (translate (- (:x from-pos) (- (:x to-pos) 80))
                                (- (:y from-pos) (:y to-pos))))
              :stable (translate 5 (* index -40))
              :deleted (translate 50 0))
-           :fill (server-color (:from message))
-           :stroke (server-color (:from message))
-           :style {:transition "transform 0.5s ease-out"}
+           :fill (server-color state (:from message))
+           :stroke (server-color state (:from message))
+           :style {:transition (when (not static) "transform 0.5s ease-out")}
            }
        [:rect {:width 40 :height 30
-               :on-mouse-over #(reset! inspect {:x 100 :y 100 :value message})
-               :on-click #(drop-message message )}]
+               :on-click (when (not static) #(reset! inspect {:x (+ inbox-loc-x 5) :y (+ inbox-loc-y (* index -40)) :value (:body message)}))}]
        [:text {:text-anchor "end"
                :transform (translate -10 20)}
         (:type message)]])))
@@ -149,16 +148,15 @@
                               (js/setTimeout cb 500)))
     :display-name "message-wrapper"
     :reagent-render
-    (fn [index m]
-      [message index m (:status (reagent/state (reagent/current-component)))])}))
+    (fn [state index m inbox-loc static]
+      [message state index m inbox-loc (:status (reagent/state (reagent/current-component))) static])}))
 
 (defn server-log-entry-line [index [path val]]
   [:tspan {:x "0" :dy "-1.2em"} (gs/format "%s = %s" (clojure.string/join "." (map name path)) val)])
 
 (defn component-map-indexed
-  ([f l] (component-map-indexed f l (fn [index item] index)))
-  ([f l key] 
-   (doall (map-indexed (fn [index item] ^{:key (key index item)} [f index item]) l))))
+  ([f l & args] 
+   (doall (map-indexed (fn [index item] ^{:key (key [index item])} (vec (concat [f] args [index item]))) l))))
 
 (defn server-log-entry [updates status]
   (fn [updates status]
@@ -189,25 +187,34 @@
       [server-log-entry upd (:status (reagent/state (reagent/current-component)))])}))
 
 
-(defn server [id name]
-  (let [pos (server-position id)
-        server-state (get-in @state [:server-state id])]
+(defn server [state static id name]
+  (println static)
+  (let [pos (server-position state id)
+        server-state (get-in state [:server-state id])]
     [:g {:transform (translate (:x pos) (:y pos))
-         :fill (server-color id)
-         :stroke (server-color id)}
+         :fill (server-color state id)
+         :stroke (server-color state id)}
      [:text {:x -20} name]
      [:line {:x1 -35 :x2 -35 :y1 -40 :y2 40 :stroke-dasharray "5,5"}]
      [:image {:xlinkHref "images/server.png" :x 0 :y -10 :width 50
-              :on-mouse-over #(reset! inspect {:x (:x pos) :y (:y pos) :value server-state})}]
+              :on-click (when (not static) #(reset! inspect {:x (:x pos) :y (:y pos) :value server-state}))}]
      [:line {:x1 -100 :x2 -50 :y1 0 :y2 0 :stroke-width 10}]
      [:g {:transform (translate -100 -40)}   ; inbox
       [transition-group {:component "g"}
-       (doall (map-indexed (fn [index m] ^{:key m} [message-wrapper index m])
-                           (get-in @state [:messages id])))]]
-     [:g {:transform (translate 0 -40)}   ; log
-      [transition-group {:component "g"}
-       (doall (map-indexed (fn [index upd] ^{:key index} [server-log-entry-wrapper upd])
-                           (get-in @state [:server-log id])))]]]))
+       (if static
+         (doall (map-indexed (fn [index m] ^{:key m} [message state index m [(- (:x pos) 100) (- (:y pos) 40)] :stable static])
+                             (get-in state [:messages id])))
+         (doall (map-indexed (fn [index m] ^{:key m} [message-wrapper state index m [(- (:x pos) 100) (- (:y pos) 40)] static])
+                             (get-in state [:messages id]))))]]
+     (when (not static)
+       [:g {:transform (translate 0 -40)} ; log
+        [transition-group {:component "g"}
+         (doall (map-indexed (fn [index upd] ^{:key index} [server-log-entry-wrapper upd])
+                             (get-in state [:server-log id])))]])]))
+
+(defn nw-state [state static]
+  [:g {:style {:background "white"}}
+   (component-map-indexed server (:servers state) state static)])
 
 (defn history-move [path]
   (let [{new-state :state new-events :events} (trees/root (trees/get-path @event-history path))]
@@ -220,14 +227,28 @@
    (when-let [[parent-x parent-y] parent-position]
      [:line {:x1 parent-x :x2 x :y1 parent-y :y2 y :stroke-width 5 :stroke-dasharray "5,1" :style {:z-index -5}}])])
 
-(defn history-view-event [path [x y] event parent-position]
+(defn history-view-event [path [x y] event parent-position inspect]
   [:g {:fill "black" :stroke "black"}
    [:g {:transform (translate x y)}
     [:circle {:cx 0 :cy 0 :r 20
               :on-click #(history-move path)
+              :on-mouse-over #(reset! inspect [x y event])
+              :on-mouse-out #(reset! inspect nil)
               :stroke (if (= path @selected-event-path) "red" "black")
               :stroke-width 5
               :style {:z-index 5}}]]])
+
+(defn history-event-inspector [inspect-event zoom xstart ystart]
+  (when-let [[x y event] @inspect-event]
+    [:div {:style {:position "absolute"
+                   :left (/ (-  x @xstart) @zoom)
+                   :bottom (+ (/ (-  y @ystart) @zoom) 100)
+                   :z-index 100}}
+     [:svg {:xmlnsXlink "http://www.w3.org/1999/xlink"
+            :width 200 :height 150 :style {:border "1px solid black" :background-color "white"}
+            :viewBox "0 0 800 600"}
+      (nw-state (:state event) true)]
+     ]))
 
 (defn history-view []
   (let [xstart (reagent/atom 0)
@@ -237,9 +258,10 @@
         starting-mouse-y (reagent/atom nil)
         xstart-on-down (reagent/atom nil)
         ystart-on-down (reagent/atom nil)
-        zoom (reagent/atom 1)]
+        zoom (reagent/atom 1)
+        inspect-event (reagent/atom nil)]
     (fn []
-      [:div
+      [:div {:style {:position "relative"}}
        [:svg {:xmlnsXlink "http://www.w3.org/1999/xlink"
               :width 750 :height 100
               :viewBox (gs/format "%d %d %d %d" @xstart @ystart (* 750 @zoom) (* 100 @zoom))
@@ -265,7 +287,8 @@
              (for [{:keys [position value path parent]} layout]
                ^{:key [path value :line]} [history-view-event-line path position value parent])
              (for [{:keys [position value path parent]} layout]
-               ^{:key [path value]} [history-view-event path position value parent]))))]]
+               ^{:key [path value]} [history-view-event path position value parent inspect-event]))))]]
+       [history-event-inspector inspect-event zoom xstart ystart]
        [:button {:on-click #(swap! zoom - .1)} "+"]
        [:button {:on-click #(swap! zoom + .1)} "-"]])))
 
@@ -308,7 +331,7 @@
    [:svg {:xmlnsXlink "http://www.w3.org/1999/xlink"
           :width 800 :height 600 :style {:border "1px solid black"}
           :viewBox "0 0 800 600"}
-    (component-map-indexed server (:servers @state))]
+    (nw-state @state false)]
    [:br]
    [next-event-button]
    [reset-events-button]
