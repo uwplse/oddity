@@ -154,9 +154,9 @@
 (defn server-log-entry-line [index [path val]]
   [:tspan {:x "0" :dy "-1.2em"} (gs/format "%s = %s" (clojure.string/join "." (map name path)) val)])
 
-(defn component-map-indexed
-  ([f l & args] 
-   (doall (map-indexed (fn [index item] ^{:key (key [index item])} (vec (concat [f] args [index item]))) l))))
+(defn component-map-indexed [el f l & args]
+  (into el (map-indexed (fn [index item] (with-meta (vec (concat [f] args [index item]))
+                                           {:key [index item]})) l)))
 
 (defn server-log-entry [updates status]
   (fn [updates status]
@@ -167,8 +167,7 @@
          :style {:opacity (case status :new "1.0" :stable "0.0")
                  :transition "all 3s ease-out"
                  :transition-property "transform, opacity"}}
-     [:text
-      (component-map-indexed server-log-entry-line updates)]]))
+     (component-map-indexed [:text] server-log-entry-line updates)]))
 
 (def server-log-entry-wrapper
   (reagent/create-class
@@ -188,7 +187,6 @@
 
 
 (defn server [state static id name]
-  (println static)
   (let [pos (server-position state id)
         server-state (get-in state [:server-state id])]
     [:g {:transform (translate (:x pos) (:y pos))
@@ -213,8 +211,7 @@
                              (get-in state [:server-log id])))]])]))
 
 (defn nw-state [state static]
-  [:g {:style {:background "white"}}
-   (component-map-indexed server (:servers state) state static)])
+  (component-map-indexed [:g {:style {:background "white"}}] server (:servers state) state static))
 
 (defn history-move [path]
   (let [{new-state :state new-events :events} (trees/root (trees/get-path @event-history path))]
@@ -337,7 +334,7 @@
        [:ul
         (doall
          (for [trace @traces]
-           [:li trace]))]])))
+           ^{:key trace} [:li trace]))]])))
 
 (defn home-page []
   [:div {:style {:position "relative"}}
