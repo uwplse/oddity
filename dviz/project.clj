@@ -24,7 +24,11 @@
                  [eval-soup "1.2.2"]
                  [org.clojure/core.async "0.3.443"]
                  [cljs-ajax "0.7.2"]
-                 [metosin/compojure-api "2.0.0-alpha7"]]
+                 [metosin/compojure-api "2.0.0-alpha7"]
+                 [org.clojure/java.jdbc "0.7.3"]
+                 [com.cognitect/transit-cljs "0.8.243"]
+                 [com.cognitect/transit-clj "0.8.300"]
+                 [org.clojure/data.json "0.2.6"]]
 
   :plugins [[lein-environ "1.0.2"]
             [lein-cljsbuild "1.1.5"]

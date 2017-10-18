@@ -1,4 +1,5 @@
 (ns dviz.core
+  (:require-macros [cljs.core.async.macros :refer [go go-loop]])
   (:require [reagent.core :as reagent]
             [secretary.core :as secretary :include-macros true]
             [accountant.core :as accountant]
@@ -13,7 +14,10 @@
             [goog.string.format]
             [cljsjs.react-transition-group]
             [datafrisk.core :as df]
-            [ajax.core :refer [GET POST]]))
+            [ajax.core :refer [GET POST]]
+            [cognitect.transit :as t]
+            [cljs.core.async :refer [put! chan <! >! timeout close!]]
+            [clojure.browser.dom :refer [get-element]]))
 
 ;; Views
 ;; -------------------------
@@ -322,19 +326,58 @@
                    :padding "10px"}}
      [:span (pr-str value)]]))
 
+(defn trace-upload [after-post]
+  (let [file (reagent/atom nil)]
+    (fn [after-post]
+      [:div
+       (if @file
+         [:div
+          [:input#trace-name {:type "text"}]
+          [:button {:on-click
+                    (fn [] (POST "/api/traces"
+                                 {:format :transit
+                                  :params {:name (.-value (get-element "trace-name"))
+                                           :trace @file
+                                           :format :transit}
+                                  :handler (fn [] (reset! file nil) (after-post))}))}
+           "Upload"]
+          [:button {:on-click #(reset! file nil)} "Cancel"]]
+         [:input {:type "file"
+                  :on-change (fn [t]
+                               (let [f (-> t (.-target) (.-files) (.item 0))
+                                     reader (js/FileReader.)
+                                     on-load (fn [e] (reset! file (-> e (.-target) (.-result))))]
+                                 (set! (.-onload reader) on-load)
+                                 (.readAsText reader f)))}])])))
+
+(defn make-trace [trace servers]
+  (into [{:reset {:servers servers :messages {} :server-state {}}}] trace))
+
 (defn trace-display []
   (let [traces (reagent/atom [])
         fetch-traces (fn [] (GET "/api/traces"
-                                 {:response-format :json
+                                 {:response-format :transit
                                   :handler (fn [resp]
-                                             (reset! traces (get resp "traces")))}))]
+                                             (reset! traces (get resp :traces)))}))
+        post-trace (fn [json] (POST "/api/traces" ))
+        expanded (reagent/atom false)
+        file-channel (chan)]
     (fetch-traces)
     (fn []
-      [:div
-       [:ul
-        (doall
-         (for [trace @traces]
-           ^{:key trace} [:li trace]))]])))
+      [:div {:style {:position "absolute" :top 5 :left 5}}
+       [:a {:href "#" :on-click #(swap! expanded not)} (concat "Traces " (if @expanded "▼" "▶"))]
+       (when @expanded
+         [:div
+          [:ul
+           (doall
+            (for [{:keys [name trace id servers]} @traces]
+              ^{:key name} [:li
+                            [:a {:href "#"
+                                 :on-click #(reset! events (event-source/StaticEventSource. (make-trace trace servers)))}
+                             name]
+                            [:span " "]
+                            [:a {:href (str "/api/trace/" id)} "(download)"]]))]
+          [trace-upload fetch-traces]])])))
 
 (defn home-page []
   [:div {:style {:position "relative"}}
