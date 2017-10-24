@@ -66,6 +66,13 @@
               :output-dir "target/uberjar"
               :optimizations :advanced
               :pretty-print  false}}
+            :deploy
+            {:source-paths ["src/cljs" "src/cljc" "env/prod/cljs"]
+             :compiler
+             {:output-to "resources/public/js/app.js"
+              :output-dir "target/deploy"
+              :optimizations :advanced
+              :pretty-print  false}}
             :app
             {:source-paths ["src/cljs" "src/cljc" "env/dev/cljs"]
              :figwheel {:on-jsload "dviz.core/mount-root"}
