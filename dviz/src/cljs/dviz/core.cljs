@@ -16,8 +16,10 @@
             [datafrisk.core :as df]
             [ajax.core :refer [GET POST]]
             [cognitect.transit :as t]
+            [cljsjs.filesaverjs]
             [cljs.core.async :refer [put! chan <! >! timeout close!]]
-            [clojure.browser.dom :refer [get-element]]))
+            [clojure.browser.dom :refer [get-element]]
+            [alandipert.storage-atom :refer [local-storage]]))
 
 ;; Views
 ;; -------------------------
@@ -326,7 +328,11 @@
                    :padding "10px"}}
      [:span (pr-str value)]]))
 
-(defn trace-upload [after-post]
+(defn add-trace [trace-db name trace]
+  (let [{:keys [trace servers]} trace]
+    (conj trace-db {:name name :trace trace :servers servers :id (count trace-db)})))
+
+(defn trace-upload [traces]
   (let [file (reagent/atom nil)]
     (fn [after-post]
       [:div
@@ -334,12 +340,8 @@
          [:div
           [:input#trace-name {:type "text"}]
           [:button {:on-click
-                    (fn [] (POST "/api/traces"
-                                 {:format :transit
-                                  :params {:name (.-value (get-element "trace-name"))
-                                           :trace @file
-                                           :format :transit}
-                                  :handler (fn [] (reset! file nil) (after-post))}))}
+                    (fn [] (swap! traces add-trace (.-value (get-element "trace-name"))
+                                  (js->clj (.parse js/JSON @file) :keywordize-keys true)))}
            "Upload"]
           [:button {:on-click #(reset! file nil)} "Cancel"]]
          [:input {:type "file"
@@ -353,16 +355,27 @@
 (defn make-trace [trace servers]
   (into [{:reset {:servers servers :messages {} :server-state {}}}] trace))
 
+(def default-traces [])
+
+(defonce traces-local (local-storage (atom default-traces) :traces))
+
+(defn download [filename content & [mime-type]]
+  (let [mime-type (or mime-type (str "text/plain;charset=" (.-characterSet js/document)))
+        blob (new js/Blob
+                  (clj->js [content])
+                  (clj->js {:type mime-type}))]
+    (js/saveAs blob filename)))
+
+(defn download-trace [trace servers]
+  (let [json (.stringify js/JSON (clj->js {:trace trace :servers servers}))]
+    (download "trace.json" json "application/json")))
+
 (defn trace-display []
-  (let [traces (reagent/atom [])
-        fetch-traces (fn [] (GET "/api/traces"
-                                 {:response-format :transit
-                                  :handler (fn [resp]
-                                             (reset! traces (get resp :traces)))}))
-        post-trace (fn [json] (POST "/api/traces" ))
+  (let [traces (reagent/atom @traces-local)
+        fetch-traces (reset! traces @traces-local)
         expanded (reagent/atom false)
         file-channel (chan)]
-    (fetch-traces)
+    (add-watch traces-local :copy-to-traces (fn [_ _ _ v] (reset! traces v)))
     (fn []
       [:div {:style {:position "absolute" :top 5 :left 5}}
        [:a {:href "#" :on-click #(swap! expanded not)} (concat "Traces " (if @expanded "▼" "▶"))]
@@ -376,8 +389,8 @@
                                  :on-click #(reset! events (event-source/StaticEventSource. (make-trace trace servers)))}
                              name]
                             [:span " "]
-                            [:a {:href (str "/api/trace/" id)} "(download)"]]))]
-          [trace-upload fetch-traces]])])))
+                            [:a {:href "#" :on-click #(download-trace trace servers)} "(download)"]]))]
+          [trace-upload traces-local]])])))
 
 (defn home-page []
   [:div {:style {:position "relative"}}

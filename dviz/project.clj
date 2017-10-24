@@ -28,7 +28,9 @@
                  [org.clojure/java.jdbc "0.7.3"]
                  [com.cognitect/transit-cljs "0.8.243"]
                  [com.cognitect/transit-clj "0.8.300"]
-                 [org.clojure/data.json "0.2.6"]]
+                 [org.clojure/data.json "0.2.6"]
+                 [cljsjs/filesaverjs "1.3.3-0"]
+                 [alandipert/storage-atom "2.0.1"]]
 
   :plugins [[lein-environ "1.0.2"]
             [lein-cljsbuild "1.1.5"]

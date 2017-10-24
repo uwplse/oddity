@@ -28,7 +28,7 @@
      (include-js "/js/app.js")]))
 
 (defroutes routes
-  #'api-routes
+  ;#'api-routes
   (GET "/" [] (loading-page))
   (GET "/about" [] (loading-page))
   
