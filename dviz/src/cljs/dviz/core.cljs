@@ -355,7 +355,18 @@
 (defn make-trace [trace servers]
   (into [{:reset {:servers servers :messages {} :server-state {}}}] trace))
 
-(def default-traces [])
+(def default-traces
+  [{:name "Mutex"
+   :id 0
+   :servers ["0" "1"]
+   :trace [{:update-state [0 [["clock"] 2]] :send-messages [{:from 0 :to 1 :type "png" :body {:clock 2}}]}
+           {:update-state [0 [["req" "1"] 2]] :send-messages [{:from 0 :to 1 :type "req" :body {:clock 2}}]}
+           {:update-state [1 [["clock"] 2]] :send-messages [{:from 1 :to 0 :type "png" :body {:clock 2}}]}
+           {:update-state [1 [["req" "2"] 2]] :send-messages [{:from 1 :to 0 :type "req" :body {:clock 2}}]}
+           {:update-state [0 [["png" "2"] 2]] :deliver-message {:from 1 :to 0 :type "png" :body {:clock 2}}}
+           {:update-state [0 [["crit"] true]]}
+           {:update-state [1 [["png" "1"] 2]] :deliver-message {:from 0 :to 1 :type "png" :body {:clock 2}}}
+           {:update-state [1 [["crit"] true]]}]}])
 
 (defonce traces-local (local-storage (atom default-traces) :traces))
 
