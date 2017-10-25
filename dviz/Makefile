@@ -5,6 +5,5 @@ deploy:
 	./lein minify-assets
 	./lein cljsbuild once deploy
 	cp -r resources/public/* target/deploy/
-	rsync -r target/deploy/ $(shell ~/uwplse/getdir)
 
 .PHONY: deploy
