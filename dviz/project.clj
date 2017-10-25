@@ -35,7 +35,8 @@
   :plugins [[lein-environ "1.0.2"]
             [lein-cljsbuild "1.1.5"]
             [lein-asset-minifier "0.2.7"
-             :exclusions [org.clojure/clojure]]]
+             :exclusions [org.clojure/clojure]]
+            [cljs-simple-cache-buster "0.2.1"]]
 
   :ring {:handler dviz.handler/app
          :uberwar-name "dviz.war"}
@@ -49,7 +50,9 @@
   :clean-targets ^{:protect false}
   [:target-path
    [:cljsbuild :builds :app :compiler :output-dir]
-   [:cljsbuild :builds :app :compiler :output-to]]
+   [:cljsbuild :builds :app :compiler :output-to]
+   [:cljsbuild :builds :deploy :compiler :output-dir]
+   [:cljsbuild :builds :deploy :compiler :output-to]]
 
   :source-paths ["src/clj" "src/cljc"]
   :resource-paths ["resources" "target/cljsbuild"]
@@ -58,15 +61,12 @@
   {:assets
    {"resources/public/css/site.min.css" "resources/public/css/site.css"}}
 
+  :cljs-simple-cache-buster {:cljsbuild-id "deploy"
+                             :template-file "resources/static/index.html"
+                             :output-to "target/deploy/index.html"}
+  
   :cljsbuild
-  {:builds {:min
-            {:source-paths ["src/cljs" "src/cljc" "env/prod/cljs"]
-             :compiler
-             {:output-to "target/cljsbuild/public/js/app.js"
-              :output-dir "target/uberjar"
-              :optimizations :advanced
-              :pretty-print  false}}
-            :deploy
+  {:builds {:deploy
             {:source-paths ["src/cljs" "src/cljc" "env/prod/cljs"]
              :compiler
              {:output-to "target/deploy/js/app.js"
