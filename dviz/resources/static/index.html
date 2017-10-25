@@ -10,5 +10,16 @@
       <h3>Loading...</h3>
     </div>
     <script src="/js/app.js?v={{ fingerprint }}" type="text/javascript"></script>
+    <script type="text/javacript">
+      var date = new Date({{ fingerprint }});
+      var hour = date.getHours();
+      var minute = date.getMinutes();
+
+      var day = date.getDate();
+      var month = date.getMonth();
+      var year = date.getFullYear();
+
+      document.title = 'Demo as of ' month + '/' + day + ' ' + hour + ':' + minute
+    </script>
   </body>
 </html>
