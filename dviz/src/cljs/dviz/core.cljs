@@ -6,7 +6,7 @@
             [vomnibus.color-brewer :as cb]
             [dviz.circles :as c]
             [dviz.event-source :as event-source]
-            [dviz.util :refer [remove-one]]
+            [dviz.util :refer [remove-one paths]]
             [dviz.sim]
             [dviz.trees :as trees]
             [dviz.paxos :refer [paxos-sim]]
@@ -19,7 +19,8 @@
             [cljsjs.filesaverjs]
             [cljs.core.async :refer [put! chan <! >! timeout close!]]
             [clojure.browser.dom :refer [get-element]]
-            [alandipert.storage-atom :refer [local-storage]]))
+            [alandipert.storage-atom :refer [local-storage]]
+            [clojure.data :refer [diff]]))
 
 ;; Views
 ;; -------------------------
@@ -55,6 +56,10 @@
   (let [i (.indexOf l v)]
     (if (>= i 0) i nil)))
 
+(defn diff-states [old new]
+  (let [[_ diffs _] (diff old new)]
+    (paths diffs)))
+
 (defn do-next-event []
   (when-let [[ev evs] (event-source/next-event @events)]
     ;; process debug
@@ -72,6 +77,12 @@
     (when-let [[id & updates] (:update-state ev)]
       (doseq [[path val] updates] (update-server-state id path val))
       (update-server-log id updates))
+    ;; process state dumps
+    (when-let [state-dumps (:states ev)]
+      (doseq [{id :server-num new-state :state} state-dumps]
+        (let [updates (diff-states (get-in @state [:server-state id]) new-state)]
+          (doseq [[path val] updates] (update-server-state id path val))
+          (update-server-log id updates))))
     ;; process send messages
     (when-let [ms (:send-messages ev)]
       (doseq [m ms] (add-message m)))
