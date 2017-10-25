@@ -69,8 +69,8 @@
             :deploy
             {:source-paths ["src/cljs" "src/cljc" "env/prod/cljs"]
              :compiler
-             {:output-to "resources/public/js/app.js"
-              :output-dir "target/deploy"
+             {:output-to "target/deploy/js/app.js"
+              :output-dir "target/deploy-tmp"
               :optimizations :advanced
               :pretty-print  false}}
             :app
