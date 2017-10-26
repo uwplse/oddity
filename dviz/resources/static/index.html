@@ -10,8 +10,9 @@
       <h3>Loading...</h3>
     </div>
     <script src="/js/app.js?v={{ fingerprint }}" type="text/javascript"></script>
-    <script type="text/javacript">
+    <script type="text/javascript">
       document.addEventListener("DOMContentLoaded", function(event) {
+      var pad = function(i) { if (i < 10) { return '0' + i; } else { return i; } };
       var date = new Date({{ fingerprint }});
       var hour = date.getHours();
       var minute = date.getMinutes();
@@ -20,7 +21,7 @@
       var month = date.getMonth();
       var year = date.getFullYear();
 
-      document.title = 'Demo as of ' + month + '/' + day + ' ' + hour + ':' + minute;
+      document.title = 'Demo as of ' + month + '/' + pad(day) + ' ' + hour + ':' + pad(minute);
       });
     </script>
   </body>
