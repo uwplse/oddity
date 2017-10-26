@@ -11,6 +11,7 @@
     </div>
     <script src="/js/app.js?v={{ fingerprint }}" type="text/javascript"></script>
     <script type="text/javacript">
+      document.addEventListener("DOMContentLoaded", function(event) {
       var date = new Date({{ fingerprint }});
       var hour = date.getHours();
       var minute = date.getMinutes();
@@ -20,6 +21,7 @@
       var year = date.getFullYear();
 
       document.title = 'Demo as of ' + month + '/' + day + ' ' + hour + ':' + minute;
+      });
     </script>
   </body>
 </html>
