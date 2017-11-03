@@ -2,7 +2,8 @@
   (:require [dviz.event-source :refer [IEventSource]]
             [dviz.util :refer [remove-one]]
             [goog.string :as gs]
-            [goog.string.format]))
+            [goog.string.format]
+            [cljs.core.async :refer [put! take! chan <! >! timeout close!]]))
 
 ;; handlers:
 (comment
@@ -67,6 +68,7 @@
 
 (defrecord Simulation [handlers st]
   IEventSource
-  (next-event [this]
+  (next-event [this ch]
     (when-let [[e st'] (step handlers st)]
-      [e (Simulation. handlers st')])))
+      (put! ch [e (Simulation. handlers st')])))
+  (reset [this ch] (put! ch this)))

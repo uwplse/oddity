@@ -17,10 +17,12 @@
             [ajax.core :refer [GET POST]]
             [cognitect.transit :as t]
             [cljsjs.filesaverjs]
-            [cljs.core.async :refer [put! chan <! >! timeout close!]]
+            [cljs.core.async :refer [put! take! chan <! >! timeout close!]]
             [clojure.browser.dom :refer [get-element]]
             [alandipert.storage-atom :refer [local-storage]]
-            [clojure.data :refer [diff]]))
+            [clojure.data :refer [diff]]
+            [haslett.client :as ws]
+            [haslett.format :as ws-fmt]))
 
 ;; Views
 ;; -------------------------
@@ -60,43 +62,48 @@
   (let [[_ diffs _] (diff old new)]
     (paths diffs)))
 
-(defn do-next-event []
-  (when-let [[ev evs] (event-source/next-event @events)]
-    ;; process debug
-    (when-let [debug (:debug ev)]
-      (.log js/console (gs/format "Processing event: %s %s" debug ev)))
-    ;; process reset
-    (when-let [reset (:reset ev)]
-      (doall (for [[k v] reset]
-               (do 
-                 (swap! state assoc k v)))))
-    ;; process delivered messages
-    (when-let [m (:deliver-message ev)]
-      (drop-message m))
-    ;; process state updates
-    (when-let [[id & updates] (:update-state ev)]
-      (doseq [[path val] updates] (update-server-state id path val))
-      (update-server-log id updates))
-    ;; process state dumps
-    (when-let [state-dumps (:states ev)]
-      (doseq [{id :server-num new-state :state} state-dumps]
-        (let [updates (diff-states (get-in @state [:server-state id]) new-state)]
-          (doseq [[path val] updates] (update-server-state id path val))
-          (update-server-log id updates))))
-    ;; process send messages
-    (when-let [ms (:send-messages ev)]
-      (doseq [m ms] (add-message m)))
-    ;; add event to history
-    (let [new-event-for-history {:state @state :events evs}]
-      (let [next-events (map trees/root (trees/children (trees/get-path @event-history @selected-event-path)))]
-        (if-let [next-event-index (index-of next-events new-event-for-history)]
-          (swap! selected-event-path conj next-event-index)
-          (do
-            (let [[new-event-history new-selected-event-path]
-                  (trees/append-path @event-history @selected-event-path new-event-for-history)]
-              (reset! event-history new-event-history)
-              (reset! selected-event-path (vec new-selected-event-path)))))))
-    (reset! events evs)))
+(defn next-event-loop [ch]
+  (go-loop []
+    (let [[ev evs] (<! ch)]
+      ;; process debug
+      (when-let [debug (:debug ev)]
+        (.log js/console (gs/format "Processing event: %s %s" debug ev)))
+      ;; process reset
+      (when-let [reset (:reset ev)]
+        (doall (for [[k v] reset]
+                 (do 
+                   (swap! state assoc k v)))))
+      ;; process delivered messages
+      (when-let [m (:deliver-message ev)]
+        (drop-message m))
+      ;; process state updates
+      (when-let [[id & updates] (:update-state ev)]
+        (doseq [[path val] updates] (update-server-state id path val))
+        (update-server-log id updates))
+      ;; process state dumps
+      (when-let [state-dumps (:states ev)]
+        (doseq [{id :server-num new-state :state} state-dumps]
+          (let [updates (diff-states (get-in @state [:server-state id]) new-state)]
+            (doseq [[path val] updates] (update-server-state id path val))
+            (update-server-log id updates))))
+      ;; process send messages
+      (when-let [ms (:send-messages ev)]
+        (doseq [m ms] (add-message m)))
+      ;; add event to history
+      (let [new-event-for-history {:state @state :events evs}]
+        (let [next-events (map trees/root (trees/children (trees/get-path @event-history @selected-event-path)))]
+          (if-let [next-event-index (index-of next-events new-event-for-history)]
+            (swap! selected-event-path conj next-event-index)
+            (do
+              (let [[new-event-history new-selected-event-path]
+                    (trees/append-path @event-history @selected-event-path new-event-for-history)]
+                (reset! event-history new-event-history)
+                (reset! selected-event-path (vec new-selected-event-path)))))))
+      (reset! events evs)
+      (recur))))
+
+(defn do-next-event [ch]
+  (event-source/next-event @events ch))
 
 (def server-circle (c/circle 400 300 150))
 
@@ -231,10 +238,14 @@
   (component-map-indexed [:g {:style {:background "white"}}] server (:servers state) state static))
 
 (defn history-move [path]
-  (let [{new-state :state new-events :events} (trees/root (trees/get-path @event-history path))]
-    (reset! state new-state)
-    (reset! events new-events)
-    (reset! selected-event-path path)))
+  (let [{new-state :state new-events :events} (trees/root (trees/get-path @event-history path))
+        ch (chan)]
+    (event-source/reset new-events ch)
+    (go
+      (let [new-events (<! ch)]
+        (reset! state new-state)
+        (go (let [ch (chan)] (reset! events (event-source/reset new-events ch))))
+        (reset! selected-event-path path)))))
 
 (defn history-view-event-line [path [x y] event parent-position]
   [:g {:fill "black" :stroke "black"}
@@ -307,11 +318,12 @@
        [:button {:on-click #(swap! zoom + .1)} "-"]])))
 
 (defn next-event-button []
-  (let []
+  (let [ch (chan)]
+    (next-event-loop ch)
     (fn [n] 
       [:button {:on-click
                 (fn []
-                  (do-next-event))}
+                  (do-next-event ch))}
        "Next event"])))
 
 

@@ -1,14 +1,18 @@
-(ns dviz.event-source)
+(ns dviz.event-source
+  (:require [cljs.core.async :refer [put! take! chan <! >! timeout close!]]))
 
 (defprotocol IEventSource
-  (next-event [this]
-    "returns an event and a new EventSource, or nil"))
+  (next-event [this ch]
+    "put the next event and a new EventSource onto the channel")
+  (reset [this ch]
+    "put a reset version of the event source onto the channel"))
 
 (defrecord StaticEventSource [evs]
   IEventSource
-  (next-event [this]
+  (next-event [this ch]
     (when-let [e (first evs)]
-      [e (StaticEventSource. (rest evs))])))
+      (put! ch [e (StaticEventSource. (rest evs))])))
+  (reset [this ch] (put! ch this)))
 
 (defn event-source-static-example []
   (StaticEventSource. 

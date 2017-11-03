@@ -30,7 +30,11 @@
                  [com.cognitect/transit-clj "0.8.300"]
                  [org.clojure/data.json "0.2.6"]
                  [cljsjs/filesaverjs "1.3.3-0"]
-                 [alandipert/storage-atom "2.0.1"]]
+                 [alandipert/storage-atom "2.0.1"]
+                 [haslett "0.1.0"]
+                 [aleph "0.4.3"]
+                 [gloss "0.2.6"]
+                 [manifold "0.1.6"]]
 
   :plugins [[lein-environ "1.0.2"]
             [lein-cljsbuild "1.1.5"]
