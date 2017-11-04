@@ -62,9 +62,11 @@
   (let [[_ diffs _] (diff old new)]
     (paths diffs)))
 
-(defn next-event-loop [ch]
+(defonce next-event-channel (chan))
+
+(defn next-event-loop []
   (go-loop []
-    (let [[ev evs] (<! ch)]
+    (let [[ev evs] (<! next-event-channel)]
       ;; process debug
       (when-let [debug (:debug ev)]
         (.log js/console (gs/format "Processing event: %s %s" debug ev)))
@@ -102,8 +104,8 @@
       (reset! events evs)
       (recur))))
 
-(defn do-next-event [ch]
-  (event-source/next-event @events ch))
+(defn do-next-event [& args]
+  (apply event-source/next-event @events next-event-channel args))
 
 (def server-circle (c/circle 400 300 150))
 
@@ -149,7 +151,8 @@
            :style {:transition (when (not static) "transform 0.5s ease-out")}
            }
        [:rect {:width 40 :height 30
-               :on-click (when (not static) #(reset! inspect {:x (+ inbox-loc-x 5) :y (+ inbox-loc-y (* index -40)) :value (:body message)}))}]
+               :on-click (when (not static) #(reset! inspect {:x (+ inbox-loc-x 5) :y (+ inbox-loc-y (* index -40)) :value (:body message)
+                                                              :actions (:actions message)}))}]
        [:text {:text-anchor "end"
                :transform (translate -10 20)}
         (:type message)]])))
@@ -318,12 +321,11 @@
        [:button {:on-click #(swap! zoom + .1)} "-"]])))
 
 (defn next-event-button []
-  (let [ch (chan)]
-    (next-event-loop ch)
+  (let []
     (fn [n] 
       [:button {:on-click
                 (fn []
-                  (do-next-event ch))}
+                  (do-next-event))}
        "Next event"])))
 
 
@@ -345,11 +347,14 @@
 
 
 (defn inspector []
-  (when-let [{:keys [x y value]} @inspect]
+  (when-let [{:keys [x y value actions]} @inspect]
     [:div {:style {:position "absolute" :top y :left x
                    :border "1px solid black" :background "white"
                    :padding "10px"}}
-     [:span (pr-str value)]]))
+     [:span (pr-str value)]
+     [:br]
+     (doall (for [[name action] actions]
+              ^{:key name} [:button {:on-click (fn [] (do-next-event action))} name]))]))
 
 (defn add-trace [trace-db name trace]
   (let [{:keys [trace servers]} trace]
@@ -427,18 +432,20 @@
           [trace-upload traces-local]])])))
 
 (defn home-page []
-  [:div {:style {:position "relative"}}
-   [inspector]
-   [:svg {:xmlnsXlink "http://www.w3.org/1999/xlink"
-          :width 800 :height 600 :style {:border "1px solid black"}
-          :viewBox "0 0 800 600"}
-    (nw-state @state false)]
-   [:br]
-   [next-event-button]
-   [reset-events-button]
-   [paxos-events-button]
-   [history-view]
-   [trace-display]])
+  (next-event-loop)
+  (fn [] 
+    [:div {:style {:position "relative"}}
+     [inspector]
+     [:svg {:xmlnsXlink "http://www.w3.org/1999/xlink"
+            :width 800 :height 600 :style {:border "1px solid black"}
+            :viewBox "0 0 800 600"}
+      (nw-state @state false)]
+     [:br]
+     [next-event-button]
+     [reset-events-button]
+     [paxos-events-button]
+     [history-view]
+     [trace-display]]))
 
 ;; -------------------------
 ;; Routes

@@ -9,7 +9,7 @@
 
 (defrecord StaticEventSource [evs]
   IEventSource
-  (next-event [this ch]
+  (next-event [this ch & args]
     (when-let [e (first evs)]
       (put! ch [e (StaticEventSource. (rest evs))])))
   (reset [this ch] (put! ch this)))
