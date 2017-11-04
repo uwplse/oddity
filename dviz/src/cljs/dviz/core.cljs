@@ -244,7 +244,7 @@
     (go
       (let [new-events (<! ch)]
         (reset! state new-state)
-        (go (let [ch (chan)] (reset! events (event-source/reset new-events ch))))
+        (reset! events new-events)
         (reset! selected-event-path path)))))
 
 (defn history-view-event-line [path [x y] event parent-position]
