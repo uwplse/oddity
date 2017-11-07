@@ -2,14 +2,14 @@
   (:require [cljs.core.async :refer [put! take! chan <! >! timeout close!]]))
 
 (defprotocol IEventSource
-  (next-event [this ch]
+  (next-event [this ch action]
     "put the next event and a new EventSource onto the channel")
   (reset [this ch]
     "put a reset version of the event source onto the channel"))
 
 (defrecord StaticEventSource [evs]
   IEventSource
-  (next-event [this ch & args]
+  (next-event [this ch _]
     (when-let [e (first evs)]
       (put! ch [e (StaticEventSource. (rest evs))])))
   (reset [this ch] (put! ch this)))

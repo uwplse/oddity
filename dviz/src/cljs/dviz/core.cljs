@@ -104,8 +104,8 @@
       (reset! events evs)
       (recur))))
 
-(defn do-next-event [& args]
-  (apply event-source/next-event @events next-event-channel args))
+(defn do-next-event [action]
+  (event-source/next-event @events next-event-channel action))
 
 (def server-circle (c/circle 400 300 150))
 
@@ -151,8 +151,17 @@
            :style {:transition (when (not static) "transform 0.5s ease-out")}
            }
        [:rect {:width 40 :height 30
-               :on-click (when (not static) #(reset! inspect {:x (+ inbox-loc-x 5) :y (+ inbox-loc-y (* index -40)) :value (:body message)
-                                                              :actions (:actions message)}))}]
+               :on-context-menu
+               (when (not static)
+                 (fn [e] (.preventDefault e) (.stopPropagation e)))
+               :on-mouse-down
+               (when (not static)
+                 (fn [e]
+                   (case (.-button e)
+                     0 (reset! inspect {:x (+ inbox-loc-x 5) :y (+ inbox-loc-y (* index -40))
+                                        :value (:body message)
+                                        :actions (:actions message)})
+                     2 (when-let [action (first (:actions message))] (do-next-event action)))))}]
        [:text {:text-anchor "end"
                :transform (translate -10 20)}
         (:type message)]])))
@@ -325,7 +334,7 @@
     (fn [n] 
       [:button {:on-click
                 (fn []
-                  (do-next-event))}
+                  (do-next-event nil))}
        "Next event"])))
 
 

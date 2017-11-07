@@ -68,7 +68,7 @@
 
 (defrecord Simulation [handlers st]
   IEventSource
-  (next-event [this ch]
+  (next-event [this ch _]
     (when-let [[e st'] (step handlers st)]
       (put! ch [e (Simulation. handlers st')])))
   (reset [this ch] (put! ch this)))
