@@ -36,6 +36,9 @@
 (defonce selected-event-path (reagent/atom []))
 (defonce inspect (reagent/atom nil))
 
+(defn non-propagating-event-handler [f]
+  (fn [e] (f e) (.preventDefault e) (.stopPropagation e)))
+
 (defn add-message [m]
   (let [id (:message-id-counter (swap! state update-in [:message-id-counter] inc))
         m (merge m {:id id})]
@@ -153,15 +156,16 @@
        [:rect {:width 40 :height 30
                :on-context-menu
                (when (not static)
-                 (fn [e] (.preventDefault e) (.stopPropagation e)))
+                 (non-propagating-event-handler (fn [])))
                :on-mouse-down
                (when (not static)
-                 (fn [e]
-                   (case (.-button e)
-                     0 (reset! inspect {:x (+ inbox-loc-x 5) :y (+ inbox-loc-y (* index -40))
-                                        :value (:body message)
-                                        :actions (:actions message)})
-                     2 (when-let [action (first (:actions message))] (do-next-event action)))))}]
+                 (non-propagating-event-handler 
+                  (fn [e]
+                    (case (.-button e)
+                      0 (reset! inspect {:x (+ inbox-loc-x 5) :y (+ inbox-loc-y (* index -40))
+                                         :value (:body message)
+                                         :actions (:actions message)})
+                      2 (when-let [action (first (:actions message))] (do-next-event action))))))}]
        [:text {:text-anchor "end"
                :transform (translate -10 20)}
         (:type message)]])))
@@ -221,7 +225,6 @@
     (fn [upd]
       [server-log-entry upd (:status (reagent/state (reagent/current-component)))])}))
 
-
 (defn server [state static id name]
   (let [pos (server-position state id)
         server-state (get-in state [:server-state id])]
@@ -231,7 +234,9 @@
      [:text {:x -20} name]
      [:line {:x1 -35 :x2 -35 :y1 -40 :y2 40 :stroke-dasharray "5,5"}]
      [:image {:xlinkHref "images/server.png" :x 0 :y -10 :width 50
-              :on-click (when (not static) #(reset! inspect {:x (:x pos) :y (:y pos) :value server-state}))}]
+              :on-click (when (not static)
+                          (non-propagating-event-handler #(reset! inspect {:x (:x pos) :y (:y pos)
+                                                                           :value server-state})))}]
      [:line {:x1 -100 :x2 -50 :y1 0 :y2 0 :stroke-width 10}]
      [:g {:transform (translate -100 -40)}   ; inbox
       [transition-group {:component "g"}
@@ -447,7 +452,8 @@
      [inspector]
      [:svg {:xmlnsXlink "http://www.w3.org/1999/xlink"
             :width 800 :height 600 :style {:border "1px solid black"}
-            :viewBox "0 0 800 600"}
+            :viewBox "0 0 800 600"
+            :on-click #(reset! inspect nil)}
       (nw-state @state false)]
      [:br]
      [next-event-button]
