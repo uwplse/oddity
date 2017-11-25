@@ -83,25 +83,20 @@
   (go-loop []
     (let [[ev evs] (<! next-event-channel)]
       ;; process debug
-      (.log js/console "?????")
       (when-let [debug (:debug ev)]
-        (.log js/console (gs/format "Prosing event: %s %s" debug ev)))
+        (.log js/console (gs/format "Processing event: %s %s" debug ev)))
       ;; process reset
-      (.log js/console "?????")
       (when-let [reset (:reset ev)]
         (doall (for [[k v] reset]
                  (do 
                    (swap! state assoc k v)))))
-      (.log js/console "?????")
       ;; process delivered messages
       (when-let [m (:deliver-message ev)]
         (drop-message m))
-      (.log js/console "?????")
       ;; process state updates
       (when-let [[id & updates] (:update-state ev)]
         (handle-state-updates id updates))
       ;; TODO unify these
-      (.log js/console "ahhhh")
       (when-let [state-updates (:update-states ev)]
         (doseq [[id updates] state-updates]
           (handle-state-updates id updates)))
