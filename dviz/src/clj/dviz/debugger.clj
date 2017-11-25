@@ -62,7 +62,16 @@
 (defn send-message [st msg]
   (let [socket (get-in @st [:sockets (get msg "name")])]
     (s/put! socket msg)
-    @(s/take! socket msg)))
+    @(s/take! socket)))
+
+(defn combine-returns [returns]
+  {:responses returns})
+
+(defn send-start [st]
+  (combine-returns (for [[server socket] (:sockets @st)]
+                     (do 
+                       (s/put! socket {:msgtype "start"})
+                       [server @(s/take! socket)]))))
 
 (def non-websocket-request
   {:status 400
@@ -71,9 +80,10 @@
 
 (defn handle-debug-msg [dbg msg]
   (let [msg (json/read-str msg)
-        resp (if (= "servers" (get msg "msgtype"))
-               {:servers (keys (:sockets @dbg))}
-               (send-message dbg msg))]
+        resp (cond
+               (= "servers" (get msg "msgtype")) {:servers (keys (:sockets @dbg))}
+               (= "start" (get msg "msgtype")) (send-start dbg)
+               :else (send-message dbg msg))]
     (json/write-str resp)))
 
 (defn debug-handler [req]
@@ -82,7 +92,7 @@
                     @(http/websocket-connection req)
                     (catch Exception e
                       nil))]
-    (let [dbg (debugger 4343)]
+    (let [dbg (debugger 4343)] ; TODO try a different port if it doesn't work
       (d/loop []
         ;; take a message, and define a default value that tells us if the connection is closed
         (-> (s/take! socket ::none)

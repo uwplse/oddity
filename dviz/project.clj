@@ -124,7 +124,7 @@
 
                    :source-paths ["env/dev/clj"]
                    :plugins [[lein-figwheel "0.5.13"]
-                             [cider/cider-nrepl "0.15.1-SNAPSHOT"]
+                             [cider/cider-nrepl "0.16.0-SNAPSHOT"]
                              [org.clojure/tools.namespace "0.3.0-alpha2"
                               :exclusions [org.clojure/tools.reader]]
                              [refactor-nrepl "2.0.0-SNAPSHOT"

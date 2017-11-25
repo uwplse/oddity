@@ -18,10 +18,27 @@
 
 (defonce timeout-duration 1000)
 
-(defn make-msg [state action])
+(defn make-msg [state action]
+  (cond
+    (= action :start) {:msgtype "start"}
+    ))
 
 (defn make-event-and-state [state action res]
-  )
+  (prn res)
+  (cond
+    (= action :start)
+    (let [responses (get res "responses")
+          servers (keys responses)
+          state-updates (into {} (for [[id response] responses]
+                                   [id (into [] (for [{path "path" value "value"}
+                                                      (get response "state-updates")]
+                                                  [path value]))]))
+          timeouts (into [] (for [[id response] responses
+                                  [timeout _] (get response "timeouts")]
+                              [id timeout]))]
+      [{:debug "cool event brah"
+        :reset {:servers servers}
+        :update-states state-updates :set-timeouts timeouts} state])))
 
 (defn debug-socket [state-atom]
   (let [in (chan) out (chan)]
@@ -30,6 +47,7 @@
             to-server (:sink stream)
             from-server (:source stream)]
         (swap! state-atom assoc :status :ready)
+        (swap! state-atom assoc :started false)
         (loop []
             (alt!
               (timeout timeout-duration) (let [res (write-and-read-result to-server
@@ -43,8 +61,9 @@
                     (do (ws/close stream) (swap! state-atom assoc :status :closed))
                     (do
                       (swap! state-atom assoc :status :processing)
+                      (swap! state-atom assoc :started true)
                       (let [res (write-and-read-result to-server (make-msg st action) from-server)]
-                        (>! out (make-response st action res))
+                        (>! out (make-event-and-state st action res))
                         (swap! state-atom assoc :status :ready)
                         (recur)))))))))
     [in out]))

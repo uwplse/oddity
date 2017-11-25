@@ -10,6 +10,7 @@
             [dviz.sim]
             [dviz.trees :as trees]
             [dviz.paxos :refer [paxos-sim]]
+            [dviz.debug-client :refer [make-debugger]]
             [goog.string :as gs]
             [goog.string.format]
             [cljsjs.react-transition-group]
@@ -44,6 +45,12 @@
         m (merge m {:id id})]
     (swap! state update-in [:messages (:to m)] #(vec (conj % m)))))
 
+(defn set-timeout [id t]
+  (swap! state update-in [:timeouts id] #(set (conj % t))))
+
+(defn clear-timeout [id t]
+  (swap! state update-in [:timeouts id] #(set (disj % t))))
+
 (defn update-server-state [id path val]
   (swap! state (fn [s]
                  (assoc-in s (concat [:server-state id] path) val))))
@@ -67,24 +74,37 @@
 
 (defonce next-event-channel (chan))
 
+(defn handle-state-updates [id updates]
+  (doseq [[path val] updates] (update-server-state id path val))
+  (update-server-log id updates))
+
 (defn next-event-loop []
+  (prn "starting event loop (you'd better only see this once!)")
   (go-loop []
     (let [[ev evs] (<! next-event-channel)]
       ;; process debug
+      (.log js/console "?????")
       (when-let [debug (:debug ev)]
-        (.log js/console (gs/format "Processing event: %s %s" debug ev)))
+        (.log js/console (gs/format "Prosing event: %s %s" debug ev)))
       ;; process reset
+      (.log js/console "?????")
       (when-let [reset (:reset ev)]
         (doall (for [[k v] reset]
                  (do 
                    (swap! state assoc k v)))))
+      (.log js/console "?????")
       ;; process delivered messages
       (when-let [m (:deliver-message ev)]
         (drop-message m))
+      (.log js/console "?????")
       ;; process state updates
       (when-let [[id & updates] (:update-state ev)]
-        (doseq [[path val] updates] (update-server-state id path val))
-        (update-server-log id updates))
+        (handle-state-updates id updates))
+      ;; TODO unify these
+      (.log js/console "ahhhh")
+      (when-let [state-updates (:update-states ev)]
+        (doseq [[id updates] state-updates]
+          (handle-state-updates id updates)))
       ;; process state dumps
       (when-let [state-dumps (:states ev)]
         (doseq [{id :server-num new-state :state} state-dumps]
@@ -94,6 +114,12 @@
       ;; process send messages
       (when-let [ms (:send-messages ev)]
         (doseq [m ms] (add-message m)))
+      ;; process new timeouts
+      (when-let [ts (:set-timeouts ev)]
+        (doseq [[id t] ts] (set-timeout id t)))
+      ;; process cleared timeouts
+      (when-let [ts (:clear-timeouts ev)]
+        (doseq [[id t] ts] (clear-timeout id t)))
       ;; add event to history
       (let [new-event-for-history {:state @state :events evs}]
         (let [next-events (map trees/root (trees/children (trees/get-path @event-history @selected-event-path)))]
@@ -112,8 +138,8 @@
 
 (def server-circle (c/circle 400 300 150))
 
-(defn server-angle [state id]
-  (+ 270 (* id (/ 360 (count (:servers state))))))
+(defn server-angle [state index]
+  (+ 270 (* index (/ 360 (count (:servers state))))))
 
 (def server-colors [cb/Dark2-3 ; 1
                     cb/Dark2-3 ; 2
@@ -127,15 +153,17 @@
 
 (defn server-color [state id]
   (let [nservers (count (:servers state))
+        index (.indexOf (:servers state) id)
         colors (if (< 8 nservers)
                  (nth server-colors nservers)
                  cb/Dark2-8)]
-    (nth colors id)))
+    (nth colors index)))
 
 (def transition-group (reagent/adapt-react-class js/ReactTransitionGroup.TransitionGroup))
 
 (defn server-position [state id]
-  (let [angle (server-angle state id)]
+  (let [index (.indexOf (:servers state) id)
+        angle (server-angle state index)]
     (c/angle server-circle angle)))
 
 (defn message [state index message [inbox-loc-x inbox-loc-y] status static]
@@ -225,13 +253,13 @@
     (fn [upd]
       [server-log-entry upd (:status (reagent/state (reagent/current-component)))])}))
 
-(defn server [state static id name]
+(defn server [state static index id]
   (let [pos (server-position state id)
         server-state (get-in state [:server-state id])]
     [:g {:transform (translate (:x pos) (:y pos))
          :fill (server-color state id)
          :stroke (server-color state id)}
-     [:text {:x -20} name]
+     [:text {:x 0 :y -20} id]
      [:line {:x1 -35 :x2 -35 :y1 -40 :y2 40 :stroke-dasharray "5,5"}]
      [:image {:xlinkHref "images/server.png" :x 0 :y -10 :width 50
               :on-click (when (not static)
@@ -445,8 +473,26 @@
                             [:a {:href "#" :on-click #(download-trace trace servers)} "(download)"]]))]
           [trace-upload traces-local]])])))
 
+(defn debug-display []
+  (let [st (reagent/atom nil)
+        debugger (reagent/atom nil)]
+    (fn []
+      [:div {:style {:position "absolute" :top 5 :right 100 :text-align "right"}}
+       (if (nil? @debugger)
+         [:a {:href "#" :on-click #(reset! debugger (make-debugger st))}
+          "Start debug server"]
+         [:div {:style {:border "1px solid black"}}
+          [:span "Servers: " (clojure.string/join "," (:servers @st))]
+          [:br]
+          (if (= (:status @st) :processing) "Processing..." "Ready")
+          (when-not (:started @st) [:a {:href "#"
+                                        :on-click (fn []
+                                                    (reset! events @debugger)
+                                                    (do-next-event :start))}
+                                    "Debug!"])])])))
+
 (defn home-page []
-  (next-event-loop)
+  
   (fn [] 
     [:div {:style {:position "relative"}}
      [inspector]
@@ -460,7 +506,8 @@
      [reset-events-button]
      [paxos-events-button]
      [history-view]
-     [trace-display]]))
+     [trace-display]
+     [debug-display]]))
 
 ;; -------------------------
 ;; Routes
@@ -480,6 +527,7 @@
   (reagent/render [current-page] (.getElementById js/document "app")))
 
 (defn init! []
+  (next-event-loop)
   (accountant/configure-navigation!
    {:nav-handler
     (fn [path]
