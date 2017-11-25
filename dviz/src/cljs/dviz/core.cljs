@@ -328,7 +328,7 @@
     [:g {:transform (translate (:x pos) (:y pos))
          :fill (server-color state id)
          :stroke (server-color state id)}
-     [:text {:x 0 :y -20} id]
+     [:text {:x 25 :y -20 :text-anchor "middle"} id]
      [:line {:x1 -35 :x2 -35 :y1 -40 :y2 40 :stroke-dasharray "5,5"}]
      [:image {:xlinkHref "images/server.png" :x 0 :y -10 :width 50
               :on-click (when (not static)
