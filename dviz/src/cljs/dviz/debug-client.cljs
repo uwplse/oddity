@@ -36,8 +36,7 @@
           timeouts (into [] (for [[id response] responses
                                   [timeout _] (get response "timeouts")]
                               [id {:server id :body timeout :actions [["Fire" {:timeout timeout}]]} timeout]))]
-      [{:debug "cool event brah"
-        :reset {:servers servers}
+      [{:reset {:servers servers}
         :update-states state-updates :set-timeouts timeouts} state])))
 
 (defn debug-socket [state-atom]
