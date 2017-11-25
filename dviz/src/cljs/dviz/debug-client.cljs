@@ -19,14 +19,15 @@
 (defonce timeout-duration 1000)
 
 (defn make-msg [state action]
-  (cond
-    (= action :start) {:msgtype "start"}
+  (prn action)
+  (case (:type action)
+    :start {:msgtype "start"}
     ))
 
 (defn make-event-and-state [state action res]
   (prn res)
-  (cond
-    (= action :start)
+  (case (:type action)
+    :start
     (let [responses (get res "responses")
           servers (keys responses)
           state-updates (into {} (for [[id response] responses]
@@ -35,7 +36,7 @@
                                                   [path value]))]))
           timeouts (into [] (for [[id response] responses
                                   [timeout _] (get response "timeouts")]
-                              [id {:server id :body timeout :actions [["Fire" {:timeout timeout}]]} timeout]))]
+                              [id {:server id :body timeout :actions [["Fire" {:type :timeout :timeout timeout}]]} timeout]))]
       [{:reset {:servers servers}
         :update-states state-updates :set-timeouts timeouts} state])))
 

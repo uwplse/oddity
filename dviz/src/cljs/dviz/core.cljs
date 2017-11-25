@@ -552,7 +552,7 @@
           (when-not (:started @st) [:a {:href "#"
                                         :on-click (fn []
                                                     (reset! events @debugger)
-                                                    (do-next-event :start))}
+                                                    (do-next-event {:type :start}))}
                                     "Debug!"])])])))
 
 (defn home-page []
