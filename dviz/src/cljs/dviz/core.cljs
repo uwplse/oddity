@@ -18,7 +18,7 @@
             [ajax.core :refer [GET POST]]
             [cognitect.transit :as t]
             [cljsjs.filesaverjs]
-            [cljs.core.async :refer [put! take! chan <! >! timeout close!]]
+            [cljs.core.async :refer [put! take! chan <! >! close!]]
             [clojure.browser.dom :refer [get-element]]
             [alandipert.storage-atom :refer [local-storage]]
             [clojure.data :refer [diff]]
@@ -193,7 +193,7 @@
                       0 (reset! inspect {:x (+ inbox-loc-x 5) :y (+ inbox-loc-y (* index -40))
                                          :value (:body message)
                                          :actions (:actions message)})
-                      2 (when-let [action (first (:actions message))] (do-next-event action))))))}]
+                      2 (when-let [[name action] (first (:actions message))] (do-next-event action))))))}]
        [:text {:text-anchor "end"
                :transform (translate -10 20)}
         (:type message)]])))
@@ -218,6 +218,56 @@
     :reagent-render
     (fn [state index m inbox-loc static]
       [message state index m inbox-loc (:status (reagent/state (reagent/current-component))) static])}))
+
+(defn timeout [state index timeout [inbox-loc-x inbox-loc-y] status static]
+  (let [mouse-over (reagent/atom false)]
+    (fn [state index timeout inbox-loc status static]
+      [:g {:transform
+           (case status
+             (:new :deleted) (translate 50 0)
+             :stable (translate 5 (* index -40)))
+           :fill (server-color state (:server timeout))
+           :stroke (server-color state (:server timeout))
+           :style {:transition (when (not static) "transform 0.5s ease-out")}
+           }
+       [:rect {:width 40 :height 30
+               :on-context-menu
+               (when (not static)
+                 (non-propagating-event-handler (fn [])))
+               :on-mouse-down
+               (when (not static)
+                 (non-propagating-event-handler 
+                  (fn [e]
+                    (case (.-button e)
+                      0 (reset! inspect {:x (+ inbox-loc-x 5) :y (+ inbox-loc-y (* index -40))
+                                         :value (:body timeout)
+                                         :actions (:actions timeout)})
+                      2 (when-let [[name action] (first (:actions timeout))] (do-next-event action))))))}]
+       [:text {:x 20 :y 15 :text-anchor "middle" :alignment-baseline "central"} "⌛"]
+       [:text {:text-anchor "end"
+               :transform (translate -10 20)}
+        (:body timeout)]])))
+
+
+(def timeout-wrapper
+  (reagent/create-class
+   {:get-initial-state (fn [] {:status  :new})
+    :component-will-appear (fn [cb]
+                             (this-as this
+                               (reagent/replace-state this {:status :stable})
+                               (cb)))
+    :component-will-enter (fn [cb]
+                            (this-as this
+                              (reagent/replace-state this {:status :stable})
+                              (cb)))
+    :component-will-leave (fn [cb]
+                            (this-as this
+                              (reagent/replace-state this {:status :deleted})
+                              (js/setTimeout cb 500)))
+    :display-name "timeout-wrapper"
+    :reagent-render
+    (fn [state index t inbox-loc static]
+      [timeout state index t inbox-loc (:status (reagent/state (reagent/current-component))) static])}))
 
 (defn server-log-entry-line [index [path val]]
   [:tspan {:x "0" :dy "-1.2em"} (gs/format "%s = %s" (clojure.string/join "." (map name path)) val)])
@@ -253,6 +303,30 @@
     (fn [upd]
       [server-log-entry upd (:status (reagent/state (reagent/current-component)))])}))
 
+(defn timeouts-and-messages [state server-id inbox-pos static]
+  (let [timeouts (get-in state [:timeouts server-id])
+        messages (get-in state [:messages server-id])
+        ntimeouts (count timeouts)]
+    [:g
+     (if static
+       (doall (map-indexed (fn [index t] ^{:key t} [timeout state index t inbox-pos :stable static])
+                           timeouts))
+       [transition-group {:component "g"}
+        (doall (map-indexed (fn [index t] ^{:key t} [timeout-wrapper state index t inbox-pos static])
+                            timeouts))]
+       )
+     (if static
+       (doall (map-indexed (fn [index m] ^{:key m}
+                             [message state (+ index ntimeouts) m inbox-pos :stable static])
+                           messages))
+       [transition-group {:component "g"}
+        (doall (map-indexed (fn [index m] ^{:key m}
+                              [message-wrapper state (+ index ntimeouts) m
+                               inbox-pos static])
+                            messages))]
+       )
+     ]))
+
 (defn server [state static index id]
   (let [pos (server-position state id)
         server-state (get-in state [:server-state id])]
@@ -267,12 +341,7 @@
                                                                            :value server-state})))}]
      [:line {:x1 -100 :x2 -50 :y1 0 :y2 0 :stroke-width 10}]
      [:g {:transform (translate -100 -40)}   ; inbox
-      [transition-group {:component "g"}
-       (if static
-         (doall (map-indexed (fn [index m] ^{:key m} [message state index m [(- (:x pos) 100) (- (:y pos) 40)] :stable static])
-                             (get-in state [:messages id])))
-         (doall (map-indexed (fn [index m] ^{:key m} [message-wrapper state index m [(- (:x pos) 100) (- (:y pos) 40)] static])
-                             (get-in state [:messages id]))))]]
+      (timeouts-and-messages state id [(- (:x pos) 100) (- (:y pos) 40)] static)]
      (when (not static)
        [:g {:transform (translate 0 -40)} ; log
         [transition-group {:component "g"}
