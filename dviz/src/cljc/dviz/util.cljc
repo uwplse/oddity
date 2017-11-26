@@ -17,3 +17,6 @@
    (if (map? m)
      (into [] (mapcat (fn [[k v]] (paths v (conj path k))) m))
      [[path m]])))
+
+(defn fields-match [fields m1 m2]
+  (every? #(= (get m1 %) (get m2 %)) fields))

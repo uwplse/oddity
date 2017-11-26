@@ -124,18 +124,18 @@ class PingPongServer(Node):
     def message_handler(self, to, sender, type, body, ret):
         if type == 'ping':
             pings = ret.get(['pings'])
-            pings = pings + body['count']
+            pings = pings + body['count'] + 1
             ret.set(['pings'], pings)
             ret.send(sender, 'pong', {'count': pings})
         elif type == 'pong':
             pongs = ret.get(['pongs'])
-            pongs = pongs + body['count']
-            ret.set(['pongs'], pings)
+            pongs = pongs + body['count'] + 1
+            ret.set(['pongs'], pongs)
             ret.set_timeout('send-ping', 5)
 
-    def timeout_handler(self, timeout, ret):
+    def timeout_handler(self, name, timeout, ret):
         ret.clear_timeout(timeout)
-        ret.send('ponger', 'ping', {'count': ret.get(['pings'])})
+        ret.send('ponger', 'ping', {'count': ret.get(['pongs'])})
 
 if __name__ == '__main__':
     import threading

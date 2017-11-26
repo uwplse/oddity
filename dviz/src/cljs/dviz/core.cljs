@@ -6,7 +6,7 @@
             [vomnibus.color-brewer :as cb]
             [dviz.circles :as c]
             [dviz.event-source :as event-source]
-            [dviz.util :refer [remove-one paths]]
+            [dviz.util :refer [remove-one paths fields-match]]
             [dviz.sim]
             [dviz.trees :as trees]
             [dviz.paxos :refer [paxos-sim]]
@@ -49,7 +49,8 @@
   (swap! state update-in [:timeouts id] #(set (conj % t))))
 
 (defn clear-timeout [id t]
-  (swap! state update-in [:timeouts id] #(set (disj % t))))
+  (swap! state update-in [:timeouts id]
+         #(set (remove (partial fields-match [:server :body] t) %))))
 
 (defn update-server-state [id path val]
   (swap! state (fn [s]
@@ -58,8 +59,6 @@
 (defn update-server-log [id updates]
   (swap! state update-in [:server-log id] #(vec (conj % updates))))
 
-(defn fields-match [fields m1 m2]
-  (every? #(= (get m1 %) (get m2 %)) fields))
 
 (defn drop-message [message]
   (swap! state update-in [:messages (:to message)] #(vec (remove-one (partial fields-match [:from :to :type :body] message) %))))
@@ -79,7 +78,7 @@
   (update-server-log id updates))
 
 (defn next-event-loop []
-  (prn "starting event loop (you'd better only see this once!)")
+  (.log js/console "starting event loop (you'd better only see this once!)")
   (go-loop []
     (let [[ev evs] (<! next-event-channel)]
       ;; process debug
@@ -225,20 +224,20 @@
            :stroke (server-color state (:server timeout))
            :style {:transition (when (not static) "transform 0.5s ease-out")}
            }
-       [:rect {:width 40 :height 30
-               :on-context-menu
-               (when (not static)
-                 (non-propagating-event-handler (fn [])))
-               :on-mouse-down
-               (when (not static)
-                 (non-propagating-event-handler 
-                  (fn [e]
-                    (case (.-button e)
-                      0 (reset! inspect {:x (+ inbox-loc-x 5) :y (+ inbox-loc-y (* index -40))
-                                         :value (:body timeout)
-                                         :actions (:actions timeout)})
-                      2 (when-let [[name action] (first (:actions timeout))] (do-next-event action))))))}]
-       [:text {:x 20 :y 15 :text-anchor "middle" :alignment-baseline "central"} "⌛"]
+       [:g {:on-context-menu
+                (when (not static)
+                  (non-propagating-event-handler (fn [])))
+                :on-mouse-down
+                (when (not static)
+                  (non-propagating-event-handler 
+                   (fn [e]
+                     (case (.-button e)
+                       0 (reset! inspect {:x (+ inbox-loc-x 5) :y (+ inbox-loc-y (* index -40))
+                                          :value (:body timeout)
+                                          :actions (:actions timeout)})
+                       2 (when-let [[name action] (first (:actions timeout))] (do-next-event action))))))}
+        [:rect {:width 40 :height 30}]
+        [:text {:x 20 :y 15 :text-anchor "middle" :alignment-baseline "central"} "⌛"]]
        [:text {:text-anchor "end"
                :transform (translate -10 20)}
         (:body timeout)]])))

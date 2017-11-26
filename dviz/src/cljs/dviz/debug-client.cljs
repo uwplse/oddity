@@ -19,26 +19,64 @@
 (defonce timeout-duration 1000)
 
 (defn make-msg [state action]
-  (prn action)
   (case (:type action)
     :start {:msgtype "start"}
-    ))
+    :timeout
+    (let [[server-id timeout-name] (:timeout action)]
+      {:msgtype "timeout" :name server-id :timeout timeout-name})
+    :message
+    (let [{:keys [from to type body]} (:message action)]
+      {:msgtype "msg" :name to :from from :type type :body body})))
+
+(defn process-single-response [server-id response]
+  (let [update-states {server-id 
+                       (for [{path "path" value "value"}
+                             (get response "state-updates")]
+                         [path value])}
+        set-timeouts (for [[timeout _] (get response "timeouts")]
+                       [server-id
+                        {:server server-id :body timeout
+                         :actions [["Fire"
+                                    {:type :timeout
+                                     :timeout [server-id timeout]}]]}])
+        clear-timeouts (for [timeout (get response "cleared-timeouts")]
+                         [server-id {:server server-id :body timeout}])
+        send-messages (for [pre-message (get response "messages")
+                            :let [message {:from server-id
+                                           :to (get pre-message "dst")
+                                           :type (get pre-message "type")
+                                           :body (get pre-message "body")}]]
+                        (assoc message :actions [["Deliver" {:type :message :message message}]]))]
+    {:debug "yo"
+     :update-states update-states
+     :set-timeouts set-timeouts
+     :clear-timeouts clear-timeouts
+     :send-messages send-messages}))
+
+(defn merge-events [events]
+  {:debug "merged"
+   :update-states (apply merge (map :update-states events))
+   :set-timeouts (mapcat :set-timeouts events)
+   :clear-timeouts (mapcat :clear-timeouts events)
+   :send-messages (mapcat :send-messages events)})
 
 (defn make-event-and-state [state action res]
-  (prn res)
   (case (:type action)
     :start
     (let [responses (get res "responses")
           servers (keys responses)
-          state-updates (into {} (for [[id response] responses]
-                                   [id (into [] (for [{path "path" value "value"}
-                                                      (get response "state-updates")]
-                                                  [path value]))]))
-          timeouts (into [] (for [[id response] responses
-                                  [timeout _] (get response "timeouts")]
-                              [id {:server id :body timeout :actions [["Fire" {:type :timeout :timeout timeout}]]} timeout]))]
-      [{:reset {:servers servers}
-        :update-states state-updates :set-timeouts timeouts} state])))
+          merged (merge-events (for [[server-id response] responses]
+                                 (process-single-response server-id response)))]
+      [(assoc merged :reset {:servers servers}) state])
+    :timeout
+    (let [[server-id _] (:timeout action)]
+      [(process-single-response server-id res) state])
+    :message
+    (let [{:keys [from to type body]} (:message action)
+          event (process-single-response to res)
+          deliver-message {:from from :to to :type type :body body}]
+      [(assoc event :deliver-message deliver-message) state])
+    ))
 
 (defn debug-socket [state-atom]
   (let [in (chan) out (chan)]
