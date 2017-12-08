@@ -108,12 +108,12 @@
       ;; process send messages
       (when-let [ms (:send-messages ev)]
         (doseq [m ms] (add-message m)))
-      ;; process new timeouts
-      (when-let [ts (:set-timeouts ev)]
-        (doseq [[id t] ts] (set-timeout id t)))
       ;; process cleared timeouts
       (when-let [ts (:clear-timeouts ev)]
         (doseq [[id t] ts] (clear-timeout id t)))
+      ;; process new timeouts
+      (when-let [ts (:set-timeouts ev)]
+        (doseq [[id t] ts] (set-timeout id t)))
       ;; add event to history
       (let [new-event-for-history {:state @state :events evs}]
         (let [next-events (map trees/root (trees/children (trees/get-path @event-history @selected-event-path)))]
@@ -263,8 +263,11 @@
     (fn [state index t inbox-loc static]
       [timeout state index t inbox-loc (:status (reagent/state (reagent/current-component))) static])}))
 
+(defn path-component [c]
+  (if (keyword? c) (str (name c)) (str c)))
+
 (defn server-log-entry-line [index [path val]]
-  [:tspan {:x "0" :dy "-1.2em"} (gs/format "%s = %s" (clojure.string/join "." (map name path)) val)])
+  [:tspan {:x "0" :dy "-1.2em"} (gs/format "%s = %s" (clojure.string/join "." (map path-component path)) val)])
 
 (defn component-map-indexed [el f l & args]
   (into el (map-indexed (fn [index item] (with-meta (vec (concat [f] args [index item]))

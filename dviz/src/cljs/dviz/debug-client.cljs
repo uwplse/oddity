@@ -60,22 +60,36 @@
    :clear-timeouts (mapcat :clear-timeouts events)
    :send-messages (mapcat :send-messages events)})
 
-(defn make-event-and-state [state action res]
+(defn update-state [state msg event]
+  (let [{actions :actions log :log} state
+        delivered-message-action {:type :message :message (:deliver-message event)}
+        clear-timeout-actions (set (map (fn [[target {body :body}]]
+                                          {:type :timeout :timeout [target body]})
+                                        (:clear-timeouts event)))
+        removed-actions (conj clear-timeout-actions delivered-message-action)
+        actions (remove #(contains? removed-actions %) actions)
+        new-messages (map #(second (first (:actions %))) (:send-messages event))
+        new-timeouts (map #(second (first (:actions (second %)))) (:set-timeouts event))
+        actions (concat actions new-messages new-timeouts)
+        log (conj log msg)]
+    {:actions actions :log log}))
+
+(defn make-event [action res]
   (case (:type action)
     :start
     (let [responses (get res "responses")
           servers (keys responses)
           merged (merge-events (for [[server-id response] responses]
                                  (process-single-response server-id response)))]
-      [(assoc merged :reset {:servers servers}) state])
+      (assoc merged :reset {:servers servers}))
     :timeout
     (let [[server-id _] (:timeout action)]
-      [(process-single-response server-id res) state])
+      (process-single-response server-id res))
     :message
     (let [{:keys [from to type body]} (:message action)
           event (process-single-response to res)
           deliver-message {:from from :to to :type type :body body}]
-      [(assoc event :deliver-message deliver-message) state])
+      (assoc event :deliver-message deliver-message))
     ))
 
 (defn debug-socket [state-atom]
@@ -86,6 +100,7 @@
             from-server (:source stream)]
         (swap! state-atom assoc :status :ready)
         (swap! state-atom assoc :started false)
+        (prn "hello doug")
         (loop []
             (alt!
               (timeout timeout-duration) (let [res (write-and-read-result to-server
@@ -95,13 +110,15 @@
                                                   (get res "servers"))
                                            (recur))
               in ([[st action]]
-                  (if (nil? action)
-                    (do (ws/close stream) (swap! state-atom assoc :status :closed))
+                  (let [action (or action (rand-nth (:actions st)))]
                     (do
                       (swap! state-atom assoc :status :processing)
                       (swap! state-atom assoc :started true)
-                      (let [res (write-and-read-result to-server (make-msg st action) from-server)]
-                        (>! out (make-event-and-state st action res))
+                      (let [msg (make-msg st action)
+                            res (write-and-read-result to-server msg from-server)
+                            event (make-event action res)
+                            state (update-state st msg event)]
+                        (>! out [event state])
                         (swap! state-atom assoc :status :ready)
                         (recur)))))))))
     [in out]))
