@@ -1,0 +1,14 @@
+* Contributions
+** The visualization itself
+- "Inboxes"
+- Unified display of messages and timestamps
+- Logged state updates
+- Branching events and tree-based navigation
+** The debugger
+- API for nodes to connect to the debug server
+- Canonical event-handler abstraction
+- Time-travel debugging of real systems--resetting and log replay
+** (Potential) case studies
+- Is the visualization useful for exploring models?
+- Is the debugger useful for class projects?
+- Is writing event-handler-based systems good?
