@@ -68,10 +68,19 @@
   {:responses returns})
 
 (defn send-start [st]
-  (combine-returns (for [[server socket] (:sockets @st)]
-                     (do 
-                       (s/put! socket {:msgtype "start"})
-                       [server @(s/take! socket)]))))
+  (combine-returns (doall
+                    (for [[server socket] (:sockets @st)]
+                      (do 
+                        (s/put! socket {:msgtype "start"})
+                        [server @(s/take! socket)])))))
+
+(defn send-reset [st log]
+  (send-start st)
+  (doseq [msg (rest log)]
+    (let [socket (get-in @st [:sockets (get msg "name")])]
+      (s/put! socket msg)
+      @(s/take! socket)))
+  {:ok true})
 
 (def non-websocket-request
   {:status 400
@@ -83,6 +92,7 @@
         resp (cond
                (= "servers" (get msg "msgtype")) {:servers (keys (:sockets @dbg))}
                (= "start" (get msg "msgtype")) (send-start dbg)
+               (= "reset" (get msg "msgtype")) (send-reset dbg (get msg "log"))
                :else (send-message dbg msg))]
     (json/write-str resp)))
 
@@ -114,7 +124,7 @@
             ;; and close the connection
             (d/catch
                 (fn [ex]
-                  (s/put! socket (str "ERROR: " ex))
+                  (s/put! socket (apply str "ERROR: " ex "\n" (map str (.getStackTrace ex))))
                   (s/close! socket))))))
     non-websocket-request))
 

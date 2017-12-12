@@ -14,7 +14,10 @@
     (go
       (let [[res st] (write-and-read-result in [st action] out)]
         (put! ch [res (Debugger. in out state-atom st)]))))
-  (reset [this ch] (throw js/Error "Not implemented!")))
+  (reset [this ch]
+    (go
+      (let [[res st] (write-and-read-result in [st {:type :reset}] out)]
+        (put! ch this)))))
 
 (defonce timeout-duration 1000)
 
@@ -26,7 +29,9 @@
       {:msgtype "timeout" :name server-id :timeout timeout-name})
     :message
     (let [{:keys [from to type body]} (:message action)]
-      {:msgtype "msg" :name to :from from :type type :body body})))
+      {:msgtype "msg" :name to :from from :type type :body body})
+    :reset
+    {:msgtype "reset" :log (:log state)}))
 
 (defn process-single-response [server-id response]
   (let [update-states {server-id 
@@ -71,7 +76,7 @@
         new-messages (map #(second (first (:actions %))) (:send-messages event))
         new-timeouts (map #(second (first (:actions (second %)))) (:set-timeouts event))
         actions (concat actions new-messages new-timeouts)
-        log (conj log msg)]
+        log (conj (vec log) msg)]
     {:actions actions :log log}))
 
 (defn make-event [action res]
@@ -90,6 +95,7 @@
           event (process-single-response to res)
           deliver-message {:from from :to to :type type :body body}]
       (assoc event :deliver-message deliver-message))
+    :reset nil
     ))
 
 (defn debug-socket [state-atom]
