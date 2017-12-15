@@ -363,14 +363,15 @@
    (when-let [[parent-x parent-y] parent-position]
      [:line {:x1 parent-x :x2 x :y1 parent-y :y2 y :stroke-width 5 :stroke-dasharray "5,1" :style {:z-index -5}}])])
 
-(defn history-view-event [path [x y] event parent-position inspect]
+(defn history-view-event [path [x y] event parent-position inspect selected]
+  (prn "rendering event")
   [:g {:fill "black" :stroke "black"}
    [:g {:transform (translate x y)}
     [:circle {:cx 0 :cy 0 :r 20
               :on-click #(history-move path)
               :on-mouse-over #(reset! inspect [x y event])
               :on-mouse-out #(reset! inspect nil)
-              :stroke (if (= path @selected-event-path) "red" "black")
+              :stroke (if selected "red" "black")
               :stroke-width 5
               :style {:z-index 5}}]]])
 
@@ -423,7 +424,7 @@
              (for [{:keys [position value path parent]} layout]
                ^{:key [path value :line]} [history-view-event-line path position value parent])
              (for [{:keys [position value path parent]} layout]
-               ^{:key [path value]} [history-view-event path position value parent inspect-event]))))]]
+               ^{:key [path value]} [history-view-event path position value parent inspect-event (= path @selected-event-path)]))))]]
        [history-event-inspector inspect-event zoom xstart ystart]
        [:button {:on-click #(swap! zoom - .1)} "+"]
        [:button {:on-click #(swap! zoom + .1)} "-"]])))
