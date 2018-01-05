@@ -33,6 +33,7 @@
 
 (defonce events (reagent/atom (event-source/event-source-static-example)))
 (defonce state (reagent/atom nil))
+(defonce server-positions (reagent/atom nil))
 (defonce event-history (reagent/atom (trees/leaf {:state @state :events @events})))
 (defonce selected-event-path (reagent/atom []))
 (defonce inspect (reagent/atom nil))
@@ -156,9 +157,11 @@
 (def transition-group (reagent/adapt-react-class js/ReactTransitionGroup.TransitionGroup))
 
 (defn server-position [state id]
-  (let [index (.indexOf (:servers state) id)
-        angle (server-angle state index)]
-    (c/angle server-circle angle)))
+  (if-let [pos (get @server-positions id)]
+    pos
+    (let [index (.indexOf (:servers state) id)
+          angle (server-angle state index)]
+      (c/angle server-circle angle))))
 
 (defn message [state index message [inbox-loc-x inbox-loc-y] status static]
   (let [mouse-over (reagent/atom false)]
@@ -301,6 +304,7 @@
       [server-log-entry upd (:status (reagent/state (reagent/current-component)))])}))
 
 (defn timeouts-and-messages [state server-id inbox-pos static]
+  (prn "rendering timeouts and messages")
   (let [timeouts (get-in state [:timeouts server-id])
         messages (get-in state [:messages server-id])
         ntimeouts (count timeouts)]
@@ -325,25 +329,49 @@
      ]))
 
 (defn server [state static index id]
-  (let [pos (server-position state id)
-        server-state (get-in state [:server-state id])]
-    [:g {:transform (translate (:x pos) (:y pos))
-         :fill (server-color state id)
-         :stroke (server-color state id)}
-     [:text {:x 25 :y -20 :text-anchor "middle"} id]
-     [:line {:x1 -35 :x2 -35 :y1 -40 :y2 40 :stroke-dasharray "5,5"}]
-     [:image {:xlinkHref "images/server.png" :x 0 :y -10 :width 50
-              :on-click (when (not static)
-                          (non-propagating-event-handler #(reset! inspect {:x (:x pos) :y (:y pos)
-                                                                           :value server-state})))}]
-     [:line {:x1 -100 :x2 -50 :y1 0 :y2 0 :stroke-width 10}]
-     [:g {:transform (translate -100 -40)}   ; inbox
-      (timeouts-and-messages state id [(- (:x pos) 100) (- (:y pos) 40)] static)]
-     (when (not static)
-       [:g {:transform (translate 0 -40)} ; log
-        [transition-group {:component "g"}
-         (doall (map-indexed (fn [index upd] ^{:key index} [server-log-entry-wrapper upd])
-                             (get-in state [:server-log id])))]])]))
+  (let 
+      [is-mouse-down (reagent/atom false)
+       starting-mouse-x (reagent/atom nil)
+       starting-mouse-y (reagent/atom nil)
+       xstart-on-down (reagent/atom nil)
+       ystart-on-down (reagent/atom nil)]
+    (fn [state static index id] 
+      (prn "rendering server")
+      (let [pos (server-position state id)
+            server-state (get-in state [:server-state id])]
+        [:g {:transform (translate (:x pos) (:y pos))
+             :fill (server-color state id)
+             :stroke (server-color state id)}
+         [:text {:x 25 :y -20 :text-anchor "middle"} id]
+         [:line {:x1 -35 :x2 -35 :y1 -40 :y2 40 :stroke-dasharray "5,5"}]
+         [:image {:xlinkHref "images/server.png" :x 0 :y -10 :width 50
+                  :on-click (when (not static)
+                              (non-propagating-event-handler #(reset! inspect {:x (:x pos) :y (:y pos)
+                                                                               :value server-state})))}]
+         [:line {:x1 -100 :x2 -50 :y1 0 :y2 0 :stroke-width 10}]
+         [:g {:transform (translate -100 -40)}   ; inbox
+          (timeouts-and-messages state id [(- (:x pos) 100) (- (:y pos) 40)] static)]
+         (when (not static)
+           [:g {:transform (translate 0 -40)} ; log
+            [transition-group {:component "g"}
+             (doall (map-indexed (fn [index upd] ^{:key index} [server-log-entry-wrapper upd])
+                                 (get-in state [:server-log id])))]])
+         [:circle {:fill "black" :stroke "black" :cx 25 :cy 30 :r 5
+                   :on-mouse-down (fn [e]
+                               (reset! is-mouse-down true)
+                               (reset! starting-mouse-x (.-clientX e))
+                               (reset! starting-mouse-y (.-clientY e))
+                               (reset! xstart-on-down (:x pos))
+                               (reset! ystart-on-down (:y pos))
+                               true)
+                   :on-mouse-up (fn [] (reset! is-mouse-down false))
+                   :on-mouse-move (fn [e]
+                                    (when @is-mouse-down
+                                      (let [x (.-clientX e)
+                                            y (.-clientY e)]
+                                        (swap! server-positions assoc id
+                                               {:x (- @xstart-on-down (- @starting-mouse-x x))
+                                                :y (- @ystart-on-down (- @starting-mouse-y y))}))))}]]))))
 
 (defn nw-state [state static]
   (component-map-indexed [:g {:style {:background "white"}}] server (:servers state) state static))
@@ -359,6 +387,7 @@
         (reset! selected-event-path path)))))
 
 (defn history-view-event-line [path [x y] event parent-position]
+  (prn "rendering line")
   [:g {:fill "black" :stroke "black"}
    (when-let [[parent-x parent-y] parent-position]
      [:line {:x1 parent-x :x2 x :y1 parent-y :y2 y :stroke-width 5 :stroke-dasharray "5,1" :style {:z-index -5}}])])
@@ -376,6 +405,7 @@
               :style {:z-index 5}}]]])
 
 (defn history-event-inspector [inspect-event zoom xstart ystart]
+  (prn "rendering event inspector")
   (when-let [[x y event] @inspect-event]
     [:div {:style {:position "absolute"
                    :left (/ (-  x @xstart) @zoom)
