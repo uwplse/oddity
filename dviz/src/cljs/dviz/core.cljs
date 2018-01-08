@@ -334,7 +334,14 @@
        starting-mouse-x (reagent/atom nil)
        starting-mouse-y (reagent/atom nil)
        xstart-on-down (reagent/atom nil)
-       ystart-on-down (reagent/atom nil)]
+       ystart-on-down (reagent/atom nil)
+       mouse-move-handler
+       (fn [e]
+         (let [x (.-clientX e)
+               y (.-clientY e)]
+           (swap! server-positions assoc id
+                  {:x (- @xstart-on-down (- @starting-mouse-x x))
+                   :y (- @ystart-on-down (- @starting-mouse-y y))})))]
     (fn [state static index id] 
       (prn "rendering server")
       (let [pos (server-position state id)
@@ -358,20 +365,12 @@
                                  (get-in state [:server-log id])))]])
          [:circle {:fill "black" :stroke "black" :cx 25 :cy 30 :r 5
                    :on-mouse-down (fn [e]
-                               (reset! is-mouse-down true)
-                               (reset! starting-mouse-x (.-clientX e))
-                               (reset! starting-mouse-y (.-clientY e))
-                               (reset! xstart-on-down (:x pos))
-                               (reset! ystart-on-down (:y pos))
-                               true)
-                   :on-mouse-up (fn [] (reset! is-mouse-down false))
-                   :on-mouse-move (fn [e]
-                                    (when @is-mouse-down
-                                      (let [x (.-clientX e)
-                                            y (.-clientY e)]
-                                        (swap! server-positions assoc id
-                                               {:x (- @xstart-on-down (- @starting-mouse-x x))
-                                                :y (- @ystart-on-down (- @starting-mouse-y y))}))))}]]))))
+                                    (reset! starting-mouse-x (.-clientX e))
+                                    (reset! starting-mouse-y (.-clientY e))
+                                    (reset! xstart-on-down (:x pos))
+                                    (reset! ystart-on-down (:y pos))
+                                    (.addEventListener js/document "mousemove" mouse-move-handler))
+                   :on-mouse-up (fn [] (.removeEventListener js/document "mousemove" mouse-move-handler))}]]))))
 
 (defn nw-state [state static]
   (component-map-indexed [:g {:style {:background "white"}}] server (:servers state) state static))
