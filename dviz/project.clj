@@ -59,7 +59,7 @@
    [:cljsbuild :builds :deploy :compiler :output-to]]
 
   :source-paths ["src/clj" "src/cljc"]
-  :resource-paths ["resources" "target/cljsbuild"]
+  :resource-paths ["resources" "target/cljsbuild" "target/deploy"]
 
   :minify-assets
   {:assets
@@ -73,7 +73,7 @@
   {:builds {:deploy
             {:source-paths ["src/cljs" "src/cljc" "env/prod/cljs"]
              :compiler
-             {:output-to "target/deploy/js/app.js"
+             {:output-to "target/deploy/public/js/app.js"
               :output-dir "target/deploy-tmp"
               :optimizations :advanced
               :pretty-print  false}}
@@ -138,7 +138,7 @@
 
              :uberjar {:hooks [minify-assets.plugin/hooks]
                        :source-paths ["env/prod/clj"]
-                       :prep-tasks ["compile" ["cljsbuild" "once" "min"]]
+                       :prep-tasks ["compile" ["cljsbuild" "once" "deploy"]]
                        :env {:production true}
                        :aot :all
                        :omit-source true}})
