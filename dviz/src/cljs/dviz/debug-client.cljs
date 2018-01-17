@@ -22,37 +22,47 @@
 (defonce timeout-duration 1000)
 
 (defn make-msg [state action]
+  (.log js/console (gs/format "Making message for action: %s" action))
   (case (:type action)
     :start {:msgtype "start"}
     :timeout
-    (let [[server-id timeout-name] (:timeout action)]
-      {:msgtype "timeout" :name server-id :timeout timeout-name})
+    (if-let [remote-id (get (:timeout action) :remote-id)]
+      {:msgtype "timeout" :timeout-id remote-id :to (:to (:timeout action))}
+      (let [{:keys [to type body]} (:timeout action)]
+        {:msgtype "timeout" :to to :type type :body body}))
     :message
-    (let [{:keys [from to type body]} (:message action)]
-      {:msgtype "msg" :name to :from from :type type :body body})
+    (if-let [remote-id (get (:message action) :remote-id)]
+      {:msgtype "msg" :msg-id remote-id :to (:to (:message action))}
+      (let [{:keys [from to type body]} (:message action)]
+        {:msgtype "msg" :name to :from from :type type :body body}))
     :reset
     {:msgtype "reset" :log (:log state)}))
 
 (defn process-single-response [server-id response]
-  (let [update-states {server-id 
+  (let [remote-id (get response "@id")
+        update-states {server-id 
                        (for [{path "path" value "value"}
                              (get response "state-updates")]
                          [path value])}
-        set-timeouts (for [[timeout _] (get response "timeouts")]
-                       [server-id
-                        {:server server-id :body timeout
-                         :actions [["Fire"
-                                    {:type :timeout
-                                     :timeout [server-id timeout]}]]}])
-        clear-timeouts (for [timeout (get response "cleared-timeouts")]
-                         [server-id {:server server-id :body timeout}])
-        send-messages (for [pre-message (get response "messages")
-                            :let [message {:from server-id
-                                           :to (get pre-message "dst")
+        states {server-id (get-in response ["states" server-id])}
+        set-timeouts (for [pre-timeout (get response "set-timeouts")
+                           :let [timeout {:remote-id (get pre-timeout "@id")
+                                          :to (get pre-timeout "to")
+                                          :type (get pre-timeout "type")
+                                          :body (get pre-timeout "body")}]]
+                       (assoc timeout :actions [["Fire" {:type :timeout :timeout timeout}]]))
+        clear-timeouts (for [{to "to" type "type" body "body"} (get response "cleared-timeouts")]
+                         [server-id {:to to :type type :body body}])
+        send-messages (for [pre-message (get response "send-messages")
+                            :let [message {:remote-id (get pre-message "@id")
+                                           :from server-id
+                                           :to (get pre-message "to")
                                            :type (get pre-message "type")
                                            :body (get pre-message "body")}]]
                         (assoc message :actions [["Deliver" {:type :message :message message}]]))]
     {:debug "yo"
+     :remote-id remote-id
+     :states states
      :update-states update-states
      :set-timeouts set-timeouts
      :clear-timeouts clear-timeouts
@@ -60,6 +70,8 @@
 
 (defn merge-events [events]
   {:debug "merged"
+   :remote-id (last (map :remote-id events))
+   :states (apply merge (map :states events))
    :update-states (apply merge (map :update-states events))
    :set-timeouts (mapcat :set-timeouts events)
    :clear-timeouts (mapcat :clear-timeouts events)
@@ -76,8 +88,9 @@
         new-messages (map #(second (first (:actions %))) (:send-messages event))
         new-timeouts (map #(second (first (:actions (second %)))) (:set-timeouts event))
         actions (concat actions new-messages new-timeouts)
-        log (conj (vec log) msg)]
-    {:actions actions :log log}))
+        log (conj (vec log) msg)
+        remote-id (:remote-id event)]
+    {:actions actions :log log :remote-id remote-id}))
 
 (defn make-event [action res]
   (case (:type action)
@@ -88,7 +101,7 @@
                                  (process-single-response server-id response)))]
       (assoc merged :reset {:servers servers}))
     :timeout
-    (let [[server-id _] (:timeout action)]
+    (let [{server-id :to} (:timeout action)]
       (process-single-response server-id res))
     :message
     (let [{:keys [from to type body]} (:message action)
@@ -120,13 +133,15 @@
                     (do
                       (swap! state-atom assoc :status :processing)
                       (swap! state-atom assoc :started true)
-                      (let [msg (make-msg st action)
-                            res (write-and-read-result to-server msg from-server)
-                            event (make-event action res)
-                            state (update-state st msg event)]
-                        (>! out [event state])
-                        (swap! state-atom assoc :status :ready)
-                        (recur)))))))))
+                      (if (and (= (:type action) :reset) (get st :remote-id))
+                        (>! out [nil st])
+                        (let [msg (assoc (make-msg st action) :state-id (:remote-id st))
+                              res (write-and-read-result to-server msg from-server)
+                              event (make-event action res)
+                              state (update-state st msg event)]
+                          (>! out [event state])))
+                      (swap! state-atom assoc :status :ready)
+                      (recur))))))))
     [in out]))
 
 (defn make-debugger [state-atom]

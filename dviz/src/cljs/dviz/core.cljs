@@ -46,12 +46,12 @@
         m (merge m {:id id})]
     (swap! state update-in [:messages (:to m)] #(vec (conj % m)))))
 
-(defn set-timeout [id t]
-  (swap! state update-in [:timeouts id] #(set (conj % t))))
+(defn set-timeout [t]
+  (swap! state update-in [:timeouts (:to t)] #(set (conj % t))))
 
 (defn clear-timeout [id t]
   (swap! state update-in [:timeouts id]
-         #(set (remove (partial fields-match [:server :body] t) %))))
+         #(set (remove (partial fields-match [:to :type :body] t) %))))
 
 (defn update-server-state [id path val]
   (swap! state (fn [s]
@@ -102,7 +102,8 @@
           (handle-state-updates id updates)))
       ;; process state dumps
       (when-let [state-dumps (:states ev)]
-        (doseq [{id :server-num new-state :state} state-dumps]
+        (doseq [[id new-state] state-dumps]
+          (.log js/console (gs/format "Updating server %s to state %s" id new-state))
           (let [updates (diff-states (get-in @state [:server-state id]) new-state)]
             (doseq [[path val] updates] (update-server-state id path val))
             (update-server-log id updates))))
@@ -114,7 +115,7 @@
         (doseq [[id t] ts] (clear-timeout id t)))
       ;; process new timeouts
       (when-let [ts (:set-timeouts ev)]
-        (doseq [[id t] ts] (set-timeout id t)))
+        (doseq [t ts] (set-timeout t)))
       ;; add event to history
       (let [new-event-for-history {:state @state :events evs}]
         (let [next-events (map trees/root (trees/children (trees/get-path @event-history @selected-event-path)))]
@@ -223,8 +224,8 @@
            (case status
              (:new :deleted) (translate 50 0)
              :stable (translate 5 (* index -40)))
-           :fill (server-color state (:server timeout))
-           :stroke (server-color state (:server timeout))
+           :fill (server-color state (:to timeout))
+           :stroke (server-color state (:to timeout))
            :style {:transition (when (not static) "transform 0.5s ease-out")}
            }
        [:g {:on-context-menu
@@ -243,7 +244,7 @@
         [:text {:x 20 :y 15 :text-anchor "middle" :alignment-baseline "central"} "⌛"]]
        [:text {:text-anchor "end"
                :transform (translate -10 20)}
-        (:body timeout)]])))
+        (:type timeout)]])))
 
 
 (def timeout-wrapper

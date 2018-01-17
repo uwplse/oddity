@@ -32,14 +32,19 @@
 (defn start-tcp-server
   [handler port & args]
   (tcp/start-server
-    (fn [s info]
-      (apply handler (wrap-duplex-stream protocol s) info args))
+   (fn [s info]
+     (prn s)
+     (prn info)
+     (apply handler (wrap-duplex-stream protocol s) info args))
     {:port port}))
 
 (defn register [s info st]
+  (prn "registering")
   
   (let [msg (s/take! s)]
+    (prn "in let")
     (go (let [m @msg]
+          (prn msg)
           (when-let [name (get m "name")]
             (swap! st assoc-in [:sockets name] s))
           (when-let [names (get m "names")]
@@ -60,7 +65,7 @@
   (.close (:server @st)))
 
 (defn send-message [st msg]
-  (let [socket (get-in @st [:sockets (get msg "name")])]
+  (let [socket (get-in @st [:sockets (get msg "to")])]
     (s/put! socket msg)
     @(s/take! socket)))
 
@@ -77,7 +82,7 @@
 (defn send-reset [st log]
   (send-start st)
   (doseq [msg (rest log)]
-    (let [socket (get-in @st [:sockets (get msg "name")])]
+    (let [socket (get-in @st [:sockets (get msg "to")])]
       (s/put! socket msg)
       @(s/take! socket)))
   {:ok true})
@@ -97,7 +102,7 @@
     (json/write-str resp)))
 
 (defn debug-handler [req]
-  (prn "new connection")
+  (prn "new connection!!!!! really for real")
   (if-let [socket (try
                     @(http/websocket-connection req)
                     (catch Exception e
@@ -124,6 +129,7 @@
             ;; and close the connection
             (d/catch
                 (fn [ex]
+                  (d/future (quit dbg))
                   (s/put! socket (apply str "ERROR: " ex "\n" (map str (.getStackTrace ex))))
                   (s/close! socket))))))
     non-websocket-request))
