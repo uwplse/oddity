@@ -1,4 +1,5 @@
 language: clojure
+before_install: cd dviz
 script: lein uberjar
 deploy:
   provider: releases
