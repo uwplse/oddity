@@ -164,37 +164,38 @@
           angle (server-angle state index)]
       (c/angle server-circle angle))))
 
-(defn message [state index message [inbox-loc-x inbox-loc-y] status static]
+(defn message [state index message inbox-loc status static]
   (let [mouse-over (reagent/atom false)]
     (fn [state index message inbox-loc status static]
-      [:g {:transform
-           (case status
-             :new (let [from-pos (server-position state (:from message))
-                        to-pos (server-position state (:to message))]
-                    (translate (- (:x from-pos) (- (:x to-pos) 80))
-                               (- (:y from-pos) (:y to-pos))))
-             :stable (translate 5 (* index -40))
-             :deleted (translate 50 0))
-           :fill (server-color state (:from message))
-           :stroke (server-color state (:from message))
-           :style {:transition (when (not static) "transform 0.5s ease-out")}
-           }
-       [:rect {:width 40 :height 30
-               :on-context-menu
-               (when (not static)
-                 (non-propagating-event-handler (fn [])))
-               :on-mouse-down
-               (when (not static)
-                 (non-propagating-event-handler 
-                  (fn [e]
-                    (case (.-button e)
-                      0 (reset! inspect {:x (+ inbox-loc-x 5) :y (+ inbox-loc-y (* index -40))
-                                         :value (:body message)
-                                         :actions (:actions message)})
-                      2 (when-let [[name action] (first (:actions message))] (do-next-event action))))))}]
-       [:text {:text-anchor "end"
-               :transform (translate -10 20)}
-        (:type message)]])))
+      (let [[inbox-loc-x inbox-loc-y] inbox-loc]
+        [:g {:transform
+             (case status
+               :new (let [from-pos (server-position state (:from message))
+                          to-pos (server-position state (:to message))]
+                      (translate (- (:x from-pos) (- (:x to-pos) 80))
+                                 (- (:y from-pos) (:y to-pos))))
+               :stable (translate 5 (* index -40))
+               :deleted (translate 50 0))
+             :fill (server-color state (:from message))
+             :stroke (server-color state (:from message))
+             :style {:transition (when (not static) "transform 0.5s ease-out")}
+             }
+         [:rect {:width 40 :height 30
+                 :on-context-menu
+                 (when (not static)
+                   (non-propagating-event-handler (fn [])))
+                 :on-mouse-down
+                 (when (not static)
+                   (non-propagating-event-handler 
+                    (fn [e]
+                      (case (.-button e)
+                        0 (reset! inspect {:x (+ inbox-loc-x 5) :y (+ inbox-loc-y (* index -40))
+                                           :value (:body message)
+                                           :actions (:actions message)})
+                        2 (when-let [[name action] (first (:actions message))] (do-next-event action))))))}]
+         [:text {:style {:pointer-events "none" :user-select "none"} :text-anchor "end"
+                 :transform (translate -10 20)}
+          (:type message)]]))))
 
 
 (def message-wrapper
@@ -217,34 +218,36 @@
     (fn [state index m inbox-loc static]
       [message state index m inbox-loc (:status (reagent/state (reagent/current-component))) static])}))
 
-(defn timeout [state index timeout [inbox-loc-x inbox-loc-y] status static]
+(defn timeout [state index timeout inbox-loc status static]
   (let [mouse-over (reagent/atom false)]
     (fn [state index timeout inbox-loc status static]
-      [:g {:transform
-           (case status
-             (:new :deleted) (translate 50 0)
-             :stable (translate 5 (* index -40)))
-           :fill (server-color state (:to timeout))
-           :stroke (server-color state (:to timeout))
-           :style {:transition (when (not static) "transform 0.5s ease-out")}
-           }
-       [:g {:on-context-menu
-                (when (not static)
-                  (non-propagating-event-handler (fn [])))
-                :on-mouse-down
-                (when (not static)
-                  (non-propagating-event-handler 
-                   (fn [e]
-                     (case (.-button e)
-                       0 (reset! inspect {:x (+ inbox-loc-x 5) :y (+ inbox-loc-y (* index -40))
-                                          :value (:body timeout)
-                                          :actions (:actions timeout)})
-                       2 (when-let [[name action] (first (:actions timeout))] (do-next-event action))))))}
-        [:rect {:width 40 :height 30}]
-        [:text {:x 20 :y 15 :text-anchor "middle" :alignment-baseline "central"} "⌛"]]
-       [:text {:text-anchor "end"
-               :transform (translate -10 20)}
-        (:type timeout)]])))
+      (let [[inbox-loc-x inbox-loc-y] inbox-loc]
+        [:g {:transform
+             (case status
+               (:new :deleted) (translate 50 0)
+               :stable (translate 5 (* index -40)))
+             :fill (server-color state (:to timeout))
+             :stroke (server-color state (:to timeout))
+             :style {:transition (when (not static) "transform 0.5s ease-out")}
+             }
+         [:g {:on-context-menu
+              (when (not static)
+                (non-propagating-event-handler (fn [])))
+              :on-mouse-down
+              (when (not static)
+                (non-propagating-event-handler 
+                 (fn [e]
+                   (case (.-button e)
+                     0 (reset! inspect {:x (+ inbox-loc-x 5) :y (+ inbox-loc-y (* index -40))
+                                        :value (:body timeout)
+                                        :actions (:actions timeout)})
+                     2 (when-let [[name action] (first (:actions timeout))] (do-next-event action))))))}
+          [:rect {:width 40 :height 30}]
+          [:text {:style {:pointer-events "none" :user-select "none"} :x 20 :y 15 :text-anchor "middle" :alignment-baseline "central"} "⌛"]]
+         [:text {:style {:pointer-events "none" :user-select "none"}
+                 :text-anchor "end"
+                 :transform (translate -10 20)}
+          (:type timeout)]]))))
 
 
 (def timeout-wrapper
@@ -285,7 +288,8 @@
            :stable (translate 0 -80))
          :style {:opacity (case status :new "1.0" :stable "0.0")
                  :transition "all 3s ease-out"
-                 :transition-property "transform, opacity"}}
+                 :transition-property "transform, opacity"
+                 :pointer-events "none" :user-select "none"}}
      (component-map-indexed [:text] server-log-entry-line updates)]))
 
 (def server-log-entry-wrapper
@@ -305,7 +309,6 @@
       [server-log-entry upd (:status (reagent/state (reagent/current-component)))])}))
 
 (defn timeouts-and-messages [state server-id inbox-pos static]
-  (prn "rendering timeouts and messages")
   (let [timeouts (get-in state [:timeouts server-id])
         messages (get-in state [:messages server-id])
         ntimeouts (count timeouts)]
@@ -344,13 +347,12 @@
                   {:x (- @xstart-on-down (- @starting-mouse-x x))
                    :y (- @ystart-on-down (- @starting-mouse-y y))})))]
     (fn [state static index id] 
-      (prn "rendering server")
       (let [pos (server-position state id)
             server-state (get-in state [:server-state id])]
         [:g {:transform (translate (:x pos) (:y pos))
              :fill (server-color state id)
              :stroke (server-color state id)}
-         [:text {:x 25 :y -20 :text-anchor "middle"} id]
+         [:text {:style {:pointer-events "none" :user-select "none"} :x 25 :y -20 :text-anchor "middle"} id]
          [:line {:x1 -35 :x2 -35 :y1 -40 :y2 40 :stroke-dasharray "5,5"}]
          [:image {:xlinkHref "images/server.png" :x 0 :y -10 :width 50
                   :on-click (when (not static)
@@ -358,7 +360,7 @@
                                                                                :value server-state})))}]
          [:line {:x1 -100 :x2 -50 :y1 0 :y2 0 :stroke-width 10}]
          [:g {:transform (translate -100 -40)}   ; inbox
-          (timeouts-and-messages state id [(- (:x pos) 100) (- (:y pos) 40)] static)]
+          [timeouts-and-messages state id [(- (:x pos) 100) (- (:y pos) 40)] static]]
          (when (not static)
            [:g {:transform (translate 0 -40)} ; log
             [transition-group {:component "g"}
@@ -370,8 +372,9 @@
                                     (reset! starting-mouse-y (.-clientY e))
                                     (reset! xstart-on-down (:x pos))
                                     (reset! ystart-on-down (:y pos))
-                                    (.addEventListener js/document "mousemove" mouse-move-handler))
-                   :on-mouse-up (fn [] (.removeEventListener js/document "mousemove" mouse-move-handler))}]]))))
+                                    (.addEventListener js/document "mousemove" mouse-move-handler)
+                                    (.addEventListener js/document "mouseup"
+                                                       (fn [] (.removeEventListener js/document "mousemove" mouse-move-handler))))}]]))))
 
 (defn nw-state [state static]
   (component-map-indexed [:g {:style {:background "white"}}] server (:servers state) state static))
@@ -387,13 +390,11 @@
         (reset! selected-event-path path)))))
 
 (defn history-view-event-line [path [x y] event parent-position]
-  (prn "rendering line")
   [:g {:fill "black" :stroke "black"}
    (when-let [[parent-x parent-y] parent-position]
      [:line {:x1 parent-x :x2 x :y1 parent-y :y2 y :stroke-width 5 :stroke-dasharray "5,1" :style {:z-index -5}}])])
 
 (defn history-view-event [path [x y] event parent-position inspect selected]
-  (prn "rendering event")
   [:g {:fill "black" :stroke "black"}
    [:g {:transform (translate x y)}
     [:circle {:cx 0 :cy 0 :r 20
@@ -405,7 +406,6 @@
               :style {:z-index 5}}]]])
 
 (defn history-event-inspector [inspect-event zoom xstart ystart]
-  (prn "rendering event inspector")
   (when-let [[x y event] @inspect-event]
     [:div {:style {:position "absolute"
                    :left (/ (-  x @xstart) @zoom)
@@ -483,6 +483,14 @@
                 (fn []
                   (reset! events (paxos-sim 3)))}
        "Paxos events"])))
+
+(defn reset-server-positions-button []
+  (let []
+    (fn [n] 
+      [:button {:on-click
+                (fn []
+                  (reset! server-positions nil))}
+       "Reset Server Positions"])))
 
 
 (defn inspector []
@@ -600,8 +608,9 @@
       (nw-state @state false)]
      [:br]
      [next-event-button]
-     [reset-events-button]
-     [paxos-events-button]
+     [reset-server-positions-button]
+     ;[reset-events-button]
+     ;[paxos-events-button]
      [history-view]
      [trace-display]
      [debug-display]]))
