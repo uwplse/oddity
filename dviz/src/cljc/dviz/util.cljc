@@ -14,7 +14,7 @@
 (defn paths
   ([m] (paths m []))
   ([m path]
-   (if (map? m)
+   (if (or (map? m) (nil? m))
      (into [] (mapcat (fn [[k v]] (paths v (conj path k))) m))
      [[path m]])))
 
