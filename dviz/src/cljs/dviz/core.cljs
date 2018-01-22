@@ -47,9 +47,13 @@
     (swap! state update-in [:messages (:to m)] #(vec (conj % m)))))
 
 (defn set-timeout [t]
-  (swap! state update-in [:timeouts (:to t)] #(set (conj % t))))
+  (let [id (:timeout-id-counter (swap! state update-in [:timeout-id-counter] inc))
+        t (merge t {:id id})]
+    (.log js/console (gs/format "Adding %s to %s" t (get-in @state [:timeouts (:to t)])))
+    (swap! state update-in [:timeouts (:to t)] #(set (conj % t)))))
 
 (defn clear-timeout [id t]
+  (.log js/console (gs/format "Removing %s from %s" t (get-in @state [:timeouts id])))
   (swap! state update-in [:timeouts id]
          #(set (remove (partial fields-match [:to :type :body] t) %))))
 
@@ -112,9 +116,11 @@
         (doseq [m ms] (add-message m)))
       ;; process cleared timeouts
       (when-let [ts (:clear-timeouts ev)]
+        (prn "clearing timeout")
         (doseq [[id t] ts] (clear-timeout id t)))
       ;; process new timeouts
       (when-let [ts (:set-timeouts ev)]
+        (prn "setting timeout")
         (doseq [t ts] (set-timeout t)))
       ;; add event to history
       (let [new-event-for-history {:state @state :events evs}]

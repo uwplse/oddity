@@ -46,7 +46,7 @@
                          [path value])}
         states {server-id (get-in response ["states" server-id])}
         set-timeouts (for [pre-timeout (get response "set-timeouts")
-                           :when (= (get pre-timeout "to" server-id))
+                           :when (= (get pre-timeout "to") server-id)
                            :let [timeout {:remote-id (get pre-timeout "@id")
                                           :to (get pre-timeout "to")
                                           :type (get pre-timeout "type")
@@ -102,6 +102,7 @@
           servers (keys responses)
           merged (merge-events (for [[server-id response] responses]
                                  (process-single-response server-id response)))]
+      (prn responses)
       (assoc merged :reset {:servers servers}))
     :timeout
     (let [{server-id :to} (:timeout action)]
