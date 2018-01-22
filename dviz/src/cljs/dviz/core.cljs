@@ -189,10 +189,10 @@
                    (non-propagating-event-handler 
                     (fn [e]
                       (case (.-button e)
-                        0 (reset! inspect {:x (+ inbox-loc-x 5) :y (+ inbox-loc-y (* index -40))
+                        2 (reset! inspect {:x (+ inbox-loc-x 5) :y (+ inbox-loc-y (* index -40))
                                            :value (:body message)
                                            :actions (:actions message)})
-                        2 (when-let [[name action] (first (:actions message))] (do-next-event action))))))}]
+                        0 (when-let [[name action] (first (:actions message))] (do-next-event action))))))}]
          [:text {:style {:pointer-events "none" :user-select "none"} :text-anchor "end"
                  :transform (translate -10 20)}
           (:type message)]]))))
@@ -238,10 +238,10 @@
                 (non-propagating-event-handler 
                  (fn [e]
                    (case (.-button e)
-                     0 (reset! inspect {:x (+ inbox-loc-x 5) :y (+ inbox-loc-y (* index -40))
+                     2 (reset! inspect {:x (+ inbox-loc-x 5) :y (+ inbox-loc-y (* index -40))
                                         :value (:body timeout)
                                         :actions (:actions timeout)})
-                     2 (when-let [[name action] (first (:actions timeout))] (do-next-event action))))))}
+                     0 (when-let [[name action] (first (:actions timeout))] (do-next-event action))))))}
           [:rect {:width 40 :height 30}]
           [:text {:style {:pointer-events "none" :user-select "none"} :x 20 :y 15 :text-anchor "middle" :alignment-baseline "central"} "⌛"]]
          [:text {:style {:pointer-events "none" :user-select "none"}
@@ -465,7 +465,7 @@
       [:button {:on-click
                 (fn []
                   (do-next-event nil))}
-       "Next event"])))
+       "Random next event"])))
 
 
 (defn reset-events-button []
