@@ -46,14 +46,17 @@
                          [path value])}
         states {server-id (get-in response ["states" server-id])}
         set-timeouts (for [pre-timeout (get response "set-timeouts")
+                           :when (= (get pre-timeout "to" server-id))
                            :let [timeout {:remote-id (get pre-timeout "@id")
                                           :to (get pre-timeout "to")
                                           :type (get pre-timeout "type")
                                           :body (get pre-timeout "body")}]]
                        (assoc timeout :actions [["Fire" {:type :timeout :timeout timeout}]]))
-        clear-timeouts (for [{to "to" type "type" body "body"} (get response "cleared-timeouts")]
+        clear-timeouts (for [{to "to" type "type" body "body"} (get response "cleared-timeouts")
+                             :when (= to server-id)]
                          [server-id {:to to :type type :body body}])
         send-messages (for [pre-message (get response "send-messages")
+                            :when (= (get pre-message "from") server-id)
                             :let [message {:remote-id (get pre-message "@id")
                                            :from server-id
                                            :to (get pre-message "to")
