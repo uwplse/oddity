@@ -86,7 +86,7 @@
         removed-actions (conj clear-timeout-actions delivered-message-action)
         actions (remove #(contains? removed-actions %) actions)
         new-messages (map #(second (first (:actions %))) (:send-messages event))
-        new-timeouts (map #(second (first (:actions (second %)))) (:set-timeouts event))
+        new-timeouts (map #(second (first (:actions %))) (:set-timeouts event))
         actions (concat actions new-messages new-timeouts)
         log (conj (vec log) msg)
         remote-id (:remote-id event)]
