@@ -12,8 +12,14 @@
   IEventSource
   (next-event [this ch action]
     (go
-      (let [[res st] (write-and-read-result in [st action] out)]
-        (put! ch [res (Debugger. in out state-atom st)]))))
+      (if (= (:type action) :trace)
+        ;; TODO: this is very hacky
+        (let [n (write-and-read-result in [st action] out)]
+          (dotimes [_ n]
+            (let [[res st] (<! out)]
+              (put! ch [res (Debugger. in out state-atom st)]))))
+        (let [[res st] (write-and-read-result in [st action] out)]
+          (put! ch [res (Debugger. in out state-atom st)])))))
   (reset [this ch]
     (go
       (let [[res st] (write-and-read-result in [st {:type :reset}] out)]
@@ -115,6 +121,33 @@
     :reset nil
     ))
 
+(defn get-action-and-res [servers trace-entry]
+  (if-let [timeout (get trace-entry "deliver-timeout")]
+    (let [action {:type :timeout
+                  :timeout {:remote-id (get timeout "@id")
+                            :to (get timeout "to")
+                            :type (get timeout "type")
+                            :body (get timeout "body")
+                            }}
+          res trace-entry]
+      [action res]) ; handle timeout
+    (if-let [message (get trace-entry "deliver-message")]
+      (let [action {:type :message
+                    :message {:remote-id (get message "@id")
+                              :to (get message "to")
+                              :from (get message "from")
+                              :type (get message "type")
+                              :body (get message "body")
+                              }}
+            res trace-entry]
+        [action res])
+      (let [action {:type :start}
+            res {"responses" (into {} (for [server servers] [server trace-entry]))}]
+        [action res]) ; handle start
+     )))
+
+(defn preprocess-trace [trace] trace)
+
 (defn debug-socket [state-atom]
   (let [in (chan) out (chan)]
     (go
@@ -131,19 +164,33 @@
                                                                           from-server)]
                                            (swap! state-atom assoc :servers
                                                   (get res "servers"))
+                                           (swap! state-atom assoc :trace
+                                                  (get res "trace"))
                                            (recur))
               in ([[st action]]
                   (let [action (or action (rand-nth (:actions st)))]
                     (do
                       (swap! state-atom assoc :status :processing)
                       (swap! state-atom assoc :started true)
-                      (if (and (= (:type action) :reset) (get st :remote-id))
-                        (>! out [nil st])
-                        (let [msg (assoc (make-msg st action) :state-id (:remote-id st))
-                              res (write-and-read-result to-server msg from-server)
-                              event (make-event action res)
-                              state (update-state st msg event)]
-                          (>! out [event state])))
+                      (if (= (:type action) :trace)
+                        (let [servers (get-in action [:trace "servers"])
+                              trace (preprocess-trace (get-in action [:trace "trace"]))]
+                          (.log js/console (gs/format "Replaying trace: %s" trace))
+                          (>! out (count trace))
+                          (doseq [t trace]
+                            (let [[action res] (get-action-and-res servers t)]
+                              (let [msg (assoc (make-msg st action) :state-id (:remote-id st))
+                                    event (make-event action res)
+                                    state (update-state st msg event)]
+                                (.log js/console (gs/format "Replay event %s" event))
+                                (>! out [event state])))))
+                        (if (and (= (:type action) :reset) (get st :remote-id))
+                          (>! out [nil st])
+                          (let [msg (assoc (make-msg st action) :state-id (:remote-id st))
+                                res (write-and-read-result to-server msg from-server)
+                                event (make-event action res)
+                                state (update-state st msg event)]
+                            (>! out [event state]))))
                       (swap! state-atom assoc :status :ready)
                       (recur))))))))
     [in out]))

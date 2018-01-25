@@ -47,6 +47,8 @@
           (prn msg)
           (when-let [name (get m "name")]
             (swap! st assoc-in [:sockets name] s))
+          (when-let [trace (get m "trace")]
+            (swap! st assoc :trace trace))
           (when-let [names (get m "names")]
             (doseq [name names]
               (swap! st assoc-in [:sockets name] s)))
@@ -95,7 +97,7 @@
 (defn handle-debug-msg [dbg msg]
   (let [msg (json/read-str msg)
         resp (cond
-               (= "servers" (get msg "msgtype")) {:servers (keys (:sockets @dbg))}
+               (= "servers" (get msg "msgtype")) {:servers (keys (:sockets @dbg)) :trace (:trace @dbg)}
                (= "start" (get msg "msgtype")) (send-start dbg)
                (= "reset" (get msg "msgtype")) (send-reset dbg (get msg "log"))
                :else (send-message dbg msg))]

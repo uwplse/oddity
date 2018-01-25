@@ -596,11 +596,21 @@
           [:span "Servers: " (clojure.string/join "," (:servers @st))]
           [:br]
           (if (= (:status @st) :processing) "Processing..." "Ready")
-          (when-not (:started @st) [:a {:href "#"
-                                        :on-click (fn []
-                                                    (reset! events @debugger)
-                                                    (do-next-event {:type :start}))}
-                                    "Debug!"])])])))
+          [:br]
+          (when-not (:started @st)
+            [:div
+             [:a {:href "#"
+                  :on-click (fn []
+                              (reset! events @debugger)
+                              (do-next-event {:type :start}))}
+              "Debug!"]
+             [:br]
+             (when-let [trace (:trace @st)]
+               [:a {:href "#"
+                    :on-click (fn []
+                                (reset! events @debugger)
+                                (do-next-event {:type :trace :trace trace}))}
+                "Debug trace"])])])])))
 
 (defn home-page []
   
