@@ -444,9 +444,9 @@
      (doall
       (concat 
        (for [{:keys [position value path parent]} layout]
-         ^{:key [path value :line]} [history-view-event-line path position value parent])
+         ^{:key [path :line]} [history-view-event-line path position value parent])
        (for [{:keys [position value path parent]} layout]
-         ^{:key [path value]} [history-view-event path position value parent inspect-event (= path @selected-event-path)]))))])
+         ^{:key [path]} [history-view-event path position value parent inspect-event (= path @selected-event-path)]))))])
 
 (defn history-view []
   (let [xstart (reagent/atom 0)
