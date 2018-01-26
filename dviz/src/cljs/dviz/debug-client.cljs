@@ -42,7 +42,9 @@
       (let [{:keys [from to type body]} (:message action)]
         {:msgtype "msg" :name to :from from :type type :body body}))
     :reset
-    {:msgtype "reset" :log (:log state)}))
+    {:msgtype "reset" :log (:log state)}
+    :duplicate
+    nil))
 
 (defn process-single-response [server-id response]
   (let [remote-id (get response "@id")
@@ -68,7 +70,8 @@
                                            :to (get pre-message "to")
                                            :type (get pre-message "type")
                                            :body (get pre-message "body")}]]
-                        (assoc message :actions [["Deliver" {:type :message :message message}]]))]
+                        (assoc message :actions [["Deliver" {:type :message :message message}]
+                                                 ["Duplicate" {:type :duplicate :message message}]]))]
     {:debug "yo"
      :remote-id remote-id
      :states states
@@ -94,11 +97,11 @@
                                         (:clear-timeouts event)))
         removed-actions (conj clear-timeout-actions delivered-message-action)
         actions (remove #(contains? removed-actions %) actions)
-        new-messages (map #(second (first (:actions %))) (:send-messages event))
+        new-messages (map #(second (first (:actions %))) (conj (:send-messages event) (:duplicate-message event)))
         new-timeouts (map #(second (first (:actions %))) (:set-timeouts event))
-        actions (concat actions new-messages new-timeouts)
+        actions (remove nil? (concat actions new-messages new-timeouts))
         log (conj (vec log) msg)
-        remote-id (:remote-id event)]
+        remote-id (or (:remote-id event) (:remote-id state))]
     {:actions actions :log log :remote-id remote-id}))
 
 (defn make-event [action res]
@@ -119,6 +122,13 @@
           deliver-message {:from from :to to :type type :body body}]
       (assoc event :deliver-message deliver-message))
     :reset nil
+    :duplicate
+    (let [{:keys [from to type body remote-id]} (:message action)
+          message-without-actions {:from from :to to :type type :body body :remote-id remote-id}
+          message (assoc message-without-actions
+                         :actions [["Deliver" {:type :message :message message-without-actions}]
+                                   ["Duplicate" {:type :duplicate :message message-without-actions}]])]
+      {:duplicate-message message :debug "duplicate"})
     ))
 
 (defn get-action-and-res [servers trace-entry]
@@ -148,6 +158,12 @@
 
 (defn preprocess-trace [trace] trace)
 
+(comment  (defn preprocess-trace [trace]
+            (loop [counts {} remaining trace trace []]
+              (if (nil? remaining) trace
+                  (let [trace-entry (first trace)]
+                    )))))
+
 (defn debug-socket [state-atom]
   (let [in (chan) out (chan)]
     (go
@@ -172,7 +188,8 @@
                     (do
                       (swap! state-atom assoc :status :processing)
                       (swap! state-atom assoc :started true)
-                      (if (= (:type action) :trace)
+                      (cond
+                        (= (:type action) :trace)
                         (let [servers (get-in action [:trace "servers"])
                               trace (preprocess-trace (get-in action [:trace "trace"]))]
                           (.log js/console (gs/format "Replaying trace: %s" trace))
@@ -184,13 +201,17 @@
                                     state (update-state st msg event)]
                                 (.log js/console (gs/format "Replay event %s" event))
                                 (>! out [event state])))))
-                        (if (and (= (:type action) :reset) (get st :remote-id))
-                          (>! out [nil st])
-                          (let [msg (assoc (make-msg st action) :state-id (:remote-id st))
-                                res (write-and-read-result to-server msg from-server)
-                                event (make-event action res)
-                                state (update-state st msg event)]
-                            (>! out [event state]))))
+
+                        (and (= (:type action) :reset) (get st :remote-id))
+                        (>! out [nil st])
+
+                        :else
+                        (let [msg (assoc (make-msg st action) :state-id (:remote-id st))
+                              res (when (:msgtype msg)
+                                    (write-and-read-result to-server msg from-server))
+                              event (make-event action res)
+                              state (update-state st msg event)]
+                          (>! out [event state])))
                       (swap! state-atom assoc :status :ready)
                       (recur))))))))
     [in out]))

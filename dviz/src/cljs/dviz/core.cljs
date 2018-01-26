@@ -70,9 +70,12 @@
 (defn update-server-log [id updates]
   (swap! state update-in [:server-log id] #(vec (conj % updates))))
 
-
 (defn drop-message [message]
   (swap! state update-in [:messages (:to message)] #(vec (remove-one (partial fields-match [:from :to :type :body] message) %))))
+
+(defn duplicate-message [message]
+  ;; TODO: make this better
+  (add-message message))
 
 (defn index-of [l v]
   (let [i (.indexOf l v)]
@@ -103,6 +106,8 @@
       ;; process delivered messages
       (when-let [m (:deliver-message ev)]
         (drop-message m))
+      (when-let [m (:duplicate-message ev)]
+        (duplicate-message m))
       ;; process state updates
       (when-let [[id & updates] (:update-state ev)]
         (handle-state-updates id updates))
