@@ -25,6 +25,12 @@
             [haslett.client :as ws]
             [haslett.format :as ws-fmt]))
 
+(def DEBUG false)
+
+(defn debug-render [s & rest]
+  (if DEBUG
+    (.log js/console (gs/format s rest))))
+
 ;; Views
 ;; -------------------------
 
@@ -116,11 +122,11 @@
         (doseq [m ms] (add-message m)))
       ;; process cleared timeouts
       (when-let [ts (:clear-timeouts ev)]
-        (prn "clearing timeout")
+        ;(prn "clearing timeout")
         (doseq [[id t] ts] (clear-timeout id t)))
       ;; process new timeouts
       (when-let [ts (:set-timeouts ev)]
-        (prn "setting timeout")
+        ;(prn "setting timeout")
         (doseq [t ts] (set-timeout t)))
       ;; add event to history
       (let [new-event-for-history {:state @state :events evs}]
@@ -173,6 +179,7 @@
 (defn message [state index message inbox-loc status static]
   (let [mouse-over (reagent/atom false)]
     (fn [state index message inbox-loc status static]
+      (debug-render "message")
       (let [[inbox-loc-x inbox-loc-y] inbox-loc]
         [:g {:transform
              (case status
@@ -227,6 +234,7 @@
 (defn timeout [state index timeout inbox-loc status static]
   (let [mouse-over (reagent/atom false)]
     (fn [state index timeout inbox-loc status static]
+      (debug-render "timeout")
       (let [[inbox-loc-x inbox-loc-y] inbox-loc]
         [:g {:transform
              (case status
@@ -280,6 +288,7 @@
   (if (keyword? c) (str (name c)) (str c)))
 
 (defn server-log-entry-line [index [path val]]
+  (debug-render "server-log-entry-line")
   [:tspan {:x "0" :dy "-1.2em"} (gs/format "%s = %s" (clojure.string/join "." (map path-component path)) val)])
 
 (defn component-map-indexed [el f l & args]
@@ -288,6 +297,7 @@
 
 (defn server-log-entry [updates status]
   (fn [updates status]
+    (debug-render "server-log-entry")
     [:g {:transform
          (case status
            :new (translate 0 0)
@@ -318,6 +328,7 @@
   (let [timeouts (get-in state [:timeouts server-id])
         messages (get-in state [:messages server-id])
         ntimeouts (count timeouts)]
+    (debug-render "timeouts-and-messages")
     [:g
      (if static
        (doall (map-indexed (fn [index t] ^{:key t} [timeout state index t inbox-pos :stable static])
@@ -352,7 +363,8 @@
            (swap! server-positions assoc id
                   {:x (- @xstart-on-down (- @starting-mouse-x x))
                    :y (- @ystart-on-down (- @starting-mouse-y y))})))]
-    (fn [state static index id] 
+    (fn [state static index id]
+      (debug-render "server")
       (let [pos (server-position state id)
             server-state (get-in state [:server-state id])]
         [:g {:transform (translate (:x pos) (:y pos))
@@ -396,11 +408,13 @@
         (reset! selected-event-path path)))))
 
 (defn history-view-event-line [path [x y] event parent-position]
+  (debug-render "history-view-event-line")
   [:g {:fill "black" :stroke "black"}
    (when-let [[parent-x parent-y] parent-position]
      [:line {:x1 parent-x :x2 x :y1 parent-y :y2 y :stroke-width 5 :stroke-dasharray "5,1" :style {:z-index -5}}])])
 
 (defn history-view-event [path [x y] event parent-position inspect selected]
+  (debug-render "history-view-event")
   [:g {:fill "black" :stroke "black"}
    [:g {:transform (translate x y)}
     [:circle {:cx 0 :cy 0 :r 20
@@ -413,6 +427,7 @@
 
 (defn history-event-inspector [inspect-event zoom xstart ystart]
   (when-let [[x y event] @inspect-event]
+    (debug-render "history-event-inspector")
     [:div {:style {:position "absolute"
                    :left (/ (-  x @xstart) @zoom)
                    :bottom (+ (/ (-  y @ystart) @zoom) 100)
@@ -422,6 +437,16 @@
             :viewBox "0 0 800 600"}
       (nw-state (:state event) true)]
      ]))
+
+(defn history-view-tree [inspect-event]
+  [:g {:transform (translate 50 50)}
+   (let [layout (trees/layout @event-history 75 50)]
+     (doall
+      (concat 
+       (for [{:keys [position value path parent]} layout]
+         ^{:key [path value :line]} [history-view-event-line path position value parent])
+       (for [{:keys [position value path parent]} layout]
+         ^{:key [path value]} [history-view-event path position value parent inspect-event (= path @selected-event-path)]))))])
 
 (defn history-view []
   (let [xstart (reagent/atom 0)
@@ -434,6 +459,7 @@
         zoom (reagent/atom 1)
         inspect-event (reagent/atom nil)]
     (fn []
+      (debug-render "history-view")
       [:div {:style {:position "relative"}}
        [:svg {:xmlnsXlink "http://www.w3.org/1999/xlink"
               :width 750 :height 100
@@ -453,14 +479,7 @@
                                        y (.-clientY e)]
                                    (reset! xstart (+ @xstart-on-down (- @starting-mouse-x x)))
                                    (reset! ystart (+ @ystart-on-down (- @starting-mouse-y y))))))}
-        [:g {:transform (translate 50 50)}
-         (let [layout (trees/layout @event-history 75 50)]
-           (doall
-            (concat 
-             (for [{:keys [position value path parent]} layout]
-               ^{:key [path value :line]} [history-view-event-line path position value parent])
-             (for [{:keys [position value path parent]} layout]
-               ^{:key [path value]} [history-view-event path position value parent inspect-event (= path @selected-event-path)]))))]]
+        [history-view-tree inspect-event]]
        [history-event-inspector inspect-event zoom xstart ystart]
        [:button {:on-click #(swap! zoom - .1)} "+"]
        [:button {:on-click #(swap! zoom + .1)} "-"]])))
@@ -501,6 +520,7 @@
 
 (defn inspector []
   (when-let [{:keys [x y value actions]} @inspect]
+    (debug-render "inspector")
     [:div {:style {:position "absolute" :top y :left x
                    :border "1px solid black" :background "white"
                    :padding "10px"}}
@@ -516,6 +536,7 @@
 (defn trace-upload [traces]
   (let [file (reagent/atom nil)]
     (fn [after-post]
+      (debug-render "trace-upload")
       [:div
        (if @file
          [:div
@@ -569,6 +590,7 @@
         file-channel (chan)]
     (add-watch traces-local :copy-to-traces (fn [_ _ _ v] (reset! traces v)))
     (fn []
+      (debug-render "trace-display")
       [:div {:style {:position "absolute" :top 5 :left 5}}
        [:a {:href "#" :on-click #(swap! expanded not)} (concat "Traces " (if @expanded "▼" "▶"))]
        (when @expanded
@@ -588,6 +610,7 @@
   (let [st (reagent/atom nil)
         debugger (reagent/atom nil)]
     (fn []
+      (debug-render "debug display")
       [:div {:style {:position "absolute" :top 5 :right 100 :text-align "right"}}
        (if (nil? @debugger)
          [:a {:href "#" :on-click #(reset! debugger (make-debugger st))}
@@ -613,8 +636,8 @@
                 "Debug trace"])])])])))
 
 (defn home-page []
-  
-  (fn [] 
+  (fn []
+    (debug-render "home page")
     [:div {:style {:position "relative"}}
      [inspector]
      [:svg {:xmlnsXlink "http://www.w3.org/1999/xlink"
@@ -637,6 +660,7 @@
 (def page (reagent/atom #'home-page))
 
 (defn current-page []
+  (debug-render "page")
   [:div [@page]])
 
 (secretary/defroute "/" []

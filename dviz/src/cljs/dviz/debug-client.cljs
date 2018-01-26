@@ -108,7 +108,7 @@
           servers (keys responses)
           merged (merge-events (for [[server-id response] responses]
                                  (process-single-response server-id response)))]
-      (prn responses)
+      ;(prn responses)
       (assoc merged :reset {:servers servers}))
     :timeout
     (let [{server-id :to} (:timeout action)]
@@ -156,7 +156,7 @@
             from-server (:source stream)]
         (swap! state-atom assoc :status :ready)
         (swap! state-atom assoc :started false)
-        (prn "hello doug")
+        ;(prn "hello doug")
         (loop []
             (alt!
               (timeout timeout-duration) (let [res (write-and-read-result to-server
