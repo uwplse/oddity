@@ -611,8 +611,10 @@
                             [:a {:href "#" :on-click #(download-trace trace servers)} "(download)"]]))]
           [trace-upload traces-local]])])))
 
+(defonce debug-display-state (reagent/atom nil))
+
 (defn debug-display []
-  (let [st (reagent/atom nil)
+  (let [st debug-display-state
         debugger (reagent/atom nil)]
     (fn []
       (debug-render "debug display")

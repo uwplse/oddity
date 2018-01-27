@@ -151,18 +151,62 @@
                               }}
             res trace-entry]
         [action res])
-      (let [action {:type :start}
-            res {"responses" (into {} (for [server servers] [server trace-entry]))}]
-        [action res]) ; handle start
+      (if-let [message (get trace-entry "duplicate-message")]
+        (let [action {:type :duplicate
+                    :message {:remote-id (get message "@id")
+                              :to (get message "to")
+                              :from (get message "from")
+                              :type (get message "type")
+                              :body (get message "body")
+                              }}
+            res trace-entry]
+          [action res])
+        (let [action {:type :start}
+              res {"responses" (into {} (for [server servers] [server trace-entry]))}]
+          [action res])) ; handle start
      )))
 
-(defn preprocess-trace [trace] trace)
+(defn canonicalize-message [m]
+  (if (:from m)
+    (let [{:keys [from to type body]} m]
+      {:from from :to to :type type :body body})
+    (let [{from "from" to "to" type "type" body "body"} m]
+      {:from from :to to :type type :body body})))
 
-(comment  (defn preprocess-trace [trace]
-            (loop [counts {} remaining trace trace []]
-              (if (nil? remaining) trace
-                  (let [trace-entry (first trace)]
-                    )))))
+(defn dec-at-key [k m]
+  (if k
+    (update m k dec)
+    m))
+
+(defn inc-at-key [k m]
+  (if k
+    (update m k inc)
+    m))
+
+(defn net-msg-counts [trace]
+  (loop [counts {} remaining trace]
+    (if (empty? remaining)
+      counts
+      (let [t (first remaining)
+            new-messages (map canonicalize-message (get t "send-messages"))
+            delivered-message (if-let [m (get t "deliver-message")]
+                                (canonicalize-message m))]
+        (recur
+         (->> counts
+              (merge-with + (frequencies new-messages))
+              (dec-at-key delivered-message))
+         (rest remaining))))))
+
+
+(defn preprocess-trace [trace]
+  (loop [counts (net-msg-counts trace) remaining trace trace []]
+    (if (empty? remaining)
+      trace
+      (let [t (first remaining)
+            delivered (canonicalize-message (get t "deliver-message"))]
+        (if (< (counts delivered) 0)
+          (recur (inc-at-key delivered counts) (rest remaining) (into trace [{"duplicate-message" (get t "deliver-message")} t]))
+          (recur counts (rest remaining) (into trace [t])))))))
 
 (defn debug-socket [state-atom]
   (let [in (chan) out (chan)]
@@ -194,13 +238,16 @@
                               trace (preprocess-trace (get-in action [:trace "trace"]))]
                           (.log js/console (gs/format "Replaying trace: %s" trace))
                           (>! out (count trace))
-                          (doseq [t trace]
-                            (let [[action res] (get-action-and-res servers t)]
-                              (let [msg (assoc (make-msg st action) :state-id (:remote-id st))
-                                    event (make-event action res)
-                                    state (update-state st msg event)]
-                                (.log js/console (gs/format "Replay event %s" event))
-                                (>! out [event state])))))
+                          (loop [remaining trace state st]
+                            (when-not (empty? remaining)
+                              (let [t (first remaining)
+                                    [action res] (get-action-and-res servers t)]
+                                (let [msg (assoc (make-msg state action) :state-id (:remote-id st))
+                                      event (make-event action res)
+                                      state (update-state state msg event)]
+                                  (.log js/console (gs/format "Replay event %s" event))
+                                  (>! out [event state])
+                                  (recur (rest remaining) state))))))
 
                         (and (= (:type action) :reset) (get st :remote-id))
                         (>! out [nil st])
