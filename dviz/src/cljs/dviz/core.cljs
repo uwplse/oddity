@@ -658,7 +658,7 @@
      ;[reset-events-button]
      ;[paxos-events-button]
      [history-view]
-     [trace-display]
+     ;[trace-display]
      [debug-display]]))
 
 ;; -------------------------
