@@ -435,7 +435,7 @@
     (debug-render "history-event-inspector")
     [:div {:style {:position "absolute"
                    :left (/ (-  x @xstart) @zoom)
-                   :bottom (+ (/ (-  y @ystart) @zoom) 100)
+                   :bottom 110
                    :z-index 100}}
      [:svg {:xmlnsXlink "http://www.w3.org/1999/xlink"
             :width 200 :height 150 :style {:border "1px solid black" :background-color "white"}
