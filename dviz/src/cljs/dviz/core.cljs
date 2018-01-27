@@ -378,9 +378,18 @@
          [:text {:style {:pointer-events "none" :user-select "none"} :x 25 :y -20 :text-anchor "middle"} id]
          [:line {:x1 -35 :x2 -35 :y1 -40 :y2 40 :stroke-dasharray "5,5"}]
          [:image {:xlinkHref "images/server.png" :x 0 :y -10 :width 50
-                  :on-click (when (not static)
-                              (non-propagating-event-handler #(reset! inspect {:x (:x pos) :y (:y pos)
-                                                                               :value server-state})))}]
+                  :on-context-menu
+                  (when (not static)
+                    (non-propagating-event-handler (fn [])))
+                  :on-mouse-down
+                  (when (not static)
+                    (non-propagating-event-handler 
+                     (fn [e]
+                       (case (.-button e)
+                         2 (reset! inspect {:x (:x pos) :y (:y pos)
+                                            :value server-state})
+                         0 (reset! inspect {:x (:x pos) :y (:y pos)
+                                            :value server-state})))))}]
          [:line {:x1 -100 :x2 -50 :y1 0 :y2 0 :stroke-width 10}]
          [:g {:transform (translate -100 -40)}   ; inbox
           [timeouts-and-messages state id [(- (:x pos) 100) (- (:y pos) 40)] static]]
