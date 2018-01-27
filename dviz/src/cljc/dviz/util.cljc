@@ -14,8 +14,15 @@
 (defn paths
   ([m] (paths m []))
   ([m path]
-   (if (or (map? m) (nil? m))
+   (cond
+     (or (map? m) (nil? m))
      (into [] (mapcat (fn [[k v]] (paths v (conj path k))) m))
+
+     (and (sequential? m) (some nil? m))
+     (into [] (apply concat
+                     (map-indexed (fn [k v] (when (some? v) (paths v (conj path k)))) m)))
+     
+     :else
      [[path m]])))
 
 (defn fields-match [fields m1 m2]
