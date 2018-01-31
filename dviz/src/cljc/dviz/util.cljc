@@ -15,7 +15,7 @@
   ([m] (paths m []))
   ([m path]
    (cond
-     (or (map? m) (nil? m))
+     (or (map? m))
      (into [] (mapcat (fn [[k v]] (paths v (conj path k))) m))
 
      (and (sequential? m) (some nil? m))

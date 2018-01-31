@@ -83,7 +83,9 @@
 
 (defn diff-states [old new]
   (let [[_ diffs _] (diff old new)]
-    (paths diffs)))
+    (if diffs 
+      (paths diffs)
+      [])))
 
 (defonce next-event-channel (chan))
 
