@@ -652,7 +652,6 @@
   (fn []
     (debug-render "home page")
     [:div {:style {:position "relative"}}
-     [inspector]
      [:svg {:xmlnsXlink "http://www.w3.org/1999/xlink"
             :width 800 :height 600 :style {:border "1px solid black"}
             :viewBox "0 0 800 600"
@@ -665,7 +664,8 @@
      ;[paxos-events-button]
      [history-view]
      ;[trace-display]
-     [debug-display]]))
+     [debug-display]
+     [inspector]]))
 
 ;; -------------------------
 ;; Routes
