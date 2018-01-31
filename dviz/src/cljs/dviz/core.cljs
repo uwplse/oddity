@@ -637,14 +637,14 @@
           [:div
            [:a {:href "#"
                 :on-click (fn []
-                            (reset! events @debugger)
+                            (reset! events debugger)
                             (do-next-event {:type :start}))}
             "Debug!"]
            [:br]
            (when-let [trace (:trace @st)]
              [:a {:href "#"
                   :on-click (fn []
-                              (reset! events @debugger)
+                              (reset! events debugger)
                               (do-next-event {:type :trace :trace trace}))}
               "Debug trace"])])]])))
 
