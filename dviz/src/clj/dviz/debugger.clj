@@ -12,6 +12,8 @@
             [compojure.route :as route]
             [ring.middleware.params :as params]))
 
+(def DEFAULT_ID "1")
+
 (def protocol
   (gloss/compile-frame
     (gloss/finite-frame :uint32
@@ -45,14 +47,15 @@
     (prn "in let")
     (go (let [m @msg]
           (prn msg)
-          (when-let [name (get m "name")]
-            (swap! st assoc-in [:sockets name] s))
-          (when-let [trace (get m "trace")]
-            (swap! st assoc :trace trace))
-          (when-let [names (get m "names")]
-            (doseq [name names]
-              (swap! st assoc-in [:sockets name] s)))
-          (s/put! s {:ok true})))))
+          (let [id (or (get m "id") DEFAULT_ID)]
+            (when-let [name (get m "name")]
+              (swap! st assoc-in [:sessions id :sockets name] s))
+            (when-let [trace (get m "trace")]
+              (swap! st assoc-in [:sessions id :trace] trace))
+            (when-let [names (get m "names")]
+              (doseq [name names]
+                (swap! st assoc-in [:sessions id :sockets name] s)))
+            (s/put! s {:ok true}))))))
 
 (defn debugger [port]
   (let [st (atom nil)
@@ -60,31 +63,30 @@
     (swap! st assoc :server server)
     st))
 
-(defn quit [st]
-  (doseq [[_ socket] (:sockets @st)]
+(defn quit [st id]
+  (doseq [[_ socket] (get-in @st [:sessions id :sockets])]
     (s/put! socket {:msgtype "quit"})
-    (s/close! socket))
-  (.close (:server @st)))
+    (s/close! socket)))
 
 (defn send-message [st msg]
-  (let [socket (get-in @st [:sockets (get msg "to")])]
-    (s/put! socket msg)
+  (let [socket (get-in @st [:sessions (get msg "id") :sockets (get msg "to")])]
+    (s/put! socket (dissoc msg "id"))
     @(s/take! socket)))
 
 (defn combine-returns [returns]
   {:responses returns})
 
-(defn send-start [st]
+(defn send-start [st id]
   (combine-returns (doall
-                    (for [[server socket] (:sockets @st)]
+                    (for [[server socket] (get-in @st [:sessions id :sockets])]
                       (do 
                         (s/put! socket {:msgtype "start"})
                         [server @(s/take! socket)])))))
 
-(defn send-reset [st log]
+(defn send-reset [st id log]
   (send-start st)
   (doseq [msg (rest log)]
-    (let [socket (get-in @st [:sockets (get msg "to")])]
+    (let [socket (get-in @st [:sessions id :sockets (get msg "to")])]
       (s/put! socket msg)
       @(s/take! socket)))
   {:ok true})
@@ -97,19 +99,23 @@
 (defn handle-debug-msg [dbg msg]
   (let [msg (json/read-str msg)
         resp (cond
-               (= "servers" (get msg "msgtype")) {:servers (keys (:sockets @dbg)) :trace (:trace @dbg)}
-               (= "start" (get msg "msgtype")) (send-start dbg)
-               (= "reset" (get msg "msgtype")) (send-reset dbg (get msg "log"))
+               (= "servers" (get msg "msgtype"))
+               (into {} (for [[id st] (:sessions @dbg)]
+                          [id {:servers (keys (get st :sockets)) :trace (get st :trace)}]))
+               (= "start" (get msg "msgtype")) (send-start dbg (get msg "id"))
+               (= "reset" (get msg "msgtype")) (send-reset dbg (get msg "id") (get msg "log"))
                :else (send-message dbg msg))]
     (json/write-str resp)))
 
-(defn debug-handler [req]
-  (prn "new connection!!!!! really for real")
-  (if-let [socket (try
-                    @(http/websocket-connection req)
-                    (catch Exception e
-                      nil))]
-    (let [dbg (debugger 4343)] ; TODO try a different port if it doesn't work
+(def DEBUGGER-PORT 4343)
+
+(defn debug-handler [dbg]
+  (fn  [req]
+    (prn "new connection!!!!! really for real")
+    (if-let [socket (try
+                      @(http/websocket-connection req)
+                      (catch Exception e
+                        nil))]
       (d/loop []
         ;; take a message, and define a default value that tells us if the connection is closed
         (-> (s/take! socket ::none)
@@ -133,17 +139,22 @@
                 (fn [ex]
                   (d/future (quit dbg))
                   (s/put! socket (apply str "ERROR: " ex "\n" (map str (.getStackTrace ex))))
-                  (s/close! socket))))))
-    non-websocket-request))
+                  (s/close! socket)))))
+      non-websocket-request)))
 
-(def handler
+(defn handler [dbg]
   (params/wrap-params
     (routes
-      (GET "/debug" [] debug-handler)
+      (GET "/debug" [] (debug-handler dbg))
       (route/not-found "No such page."))))
 
-(defn http-server [port]
-  (http/start-server handler {:port port}))
+(defn debugger-websocket-server [port dbg]
+  (http/start-server (handler dbg) {:port port}))
+
+(defn start-debugger []
+  (let [dbg (debugger DEBUGGER-PORT)
+        ws (debugger-websocket-server 5000 dbg)]
+    {:dbg dbg :ws ws}))
 
 (defn http-client [] (http/websocket-client "ws://localhost:5000/debug"))
 

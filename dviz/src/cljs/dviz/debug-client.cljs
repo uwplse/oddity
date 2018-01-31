@@ -8,6 +8,8 @@
             [haslett.format :as ws-fmt]
             [cljs.core.async :refer [put! take! chan <! >! timeout close!]]))
 
+  (def DEFAULT_ID "1")
+
 (defrecord Debugger [in out state-atom st]
   IEventSource
   (next-event [this ch action]
@@ -27,22 +29,25 @@
 
 (defonce timeout-duration 1000)
 
+(defn make-debugger-msg [st type m]
+  (merge m {:id  (or (get st :id) DEFAULT_ID) :msgtype type}))
+
 (defn make-msg [state action]
   (.log js/console (gs/format "Making message for action: %s" action))
   (case (:type action)
-    :start {:msgtype "start"}
+    :start {:msgtype "start" :id DEFAULT_ID}
     :timeout
     (if-let [remote-id (get (:timeout action) :remote-id)]
-      {:msgtype "timeout" :timeout-id remote-id :to (:to (:timeout action))}
+      (make-debugger-msg state "timeout" {:timeout-id remote-id :to (:to (:timeout action))})
       (let [{:keys [to type body]} (:timeout action)]
-        {:msgtype "timeout" :to to :type type :body body}))
+        (make-debugger-msg state "timeout" {:to to :type type :body body})))
     :message
     (if-let [remote-id (get (:message action) :remote-id)]
-      {:msgtype "msg" :msg-id remote-id :to (:to (:message action))}
+      (make-debugger-msg state "msg" {:msg-id remote-id :to (:to (:message action))}) 
       (let [{:keys [from to type body]} (:message action)]
-        {:msgtype "msg" :name to :from from :type type :body body}))
+        (make-debugger-msg state "msg" {:name to :from from :type type :body body})))
     :reset
-    {:msgtype "reset" :log (:log state)}
+    (make-debugger-msg state "reset" {:log (:log state)})
     :duplicate
     nil))
 
@@ -223,9 +228,9 @@
                                                                           {:msgtype "servers"}
                                                                           from-server)]
                                            (swap! state-atom assoc :servers
-                                                  (get res "servers"))
+                                                  (get-in res [DEFAULT_ID "servers"]))
                                            (swap! state-atom assoc :trace
-                                                  (get res "trace"))
+                                                  (get-in res [DEFAULT_ID "trace"]))
                                            (recur))
               in ([[st action]]
                   (let [action (or action (rand-nth (:actions st)))]

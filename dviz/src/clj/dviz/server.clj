@@ -7,5 +7,5 @@
 
  (defn -main [& args]
    (let [port (Integer/parseInt (or (env :port) "3000"))]
-     (debugger/http-server 5000)
+     (debugger/start-debugger)
      (run-jetty app {:port port :join? false})))

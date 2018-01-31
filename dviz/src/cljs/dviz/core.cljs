@@ -624,32 +624,29 @@
 
 (defn debug-display []
   (let [st debug-display-state
-        debugger (reagent/atom nil)]
+        debugger (make-debugger st)]
     (fn []
       (debug-render "debug display")
       [:div {:style {:position "absolute" :top 5 :right 100 :text-align "right"}}
-       (if (nil? @debugger)
-         [:a {:href "#" :on-click #(reset! debugger (make-debugger st))}
-          "Start debug server"]
-         [:div {:style {:border "1px solid black"}}
-          [:span "Servers: " (clojure.string/join "," (:servers @st))]
-          [:br]
-          (if (= (:status @st) :processing) "Processing..." "Ready")
-          [:br]
-          (when-not (:started @st)
-            [:div
+       [:div {:style {:border "1px solid black"}}
+        [:span "Servers: " (clojure.string/join "," (:servers @st))]
+        [:br]
+        (if (= (:status @st) :processing) "Processing..." "Ready")
+        [:br]
+        (when-not (:started @st)
+          [:div
+           [:a {:href "#"
+                :on-click (fn []
+                            (reset! events @debugger)
+                            (do-next-event {:type :start}))}
+            "Debug!"]
+           [:br]
+           (when-let [trace (:trace @st)]
              [:a {:href "#"
                   :on-click (fn []
                               (reset! events @debugger)
-                              (do-next-event {:type :start}))}
-              "Debug!"]
-             [:br]
-             (when-let [trace (:trace @st)]
-               [:a {:href "#"
-                    :on-click (fn []
-                                (reset! events @debugger)
-                                (do-next-event {:type :trace :trace trace}))}
-                "Debug trace"])])])])))
+                              (do-next-event {:type :trace :trace trace}))}
+              "Debug trace"])])]])))
 
 (defn home-page []
   (fn []
