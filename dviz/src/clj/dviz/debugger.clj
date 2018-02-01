@@ -35,18 +35,13 @@
   [handler port & args]
   (tcp/start-server
    (fn [s info]
-     (prn s)
-     (prn info)
      (apply handler (wrap-duplex-stream protocol s) info args))
     {:port port}))
 
 (defn register [s info st]
-  (prn "registering")
   
   (let [msg (s/take! s)]
-    (prn "in let")
     (go (let [m @msg]
-          (prn msg)
           (let [id (or (get m "id") DEFAULT_ID)]
             (when-let [name (get m "name")]
               (swap! st assoc-in [:sessions id :sockets name] s))
@@ -113,7 +108,6 @@
 
 (defn debug-handler [dbg]
   (fn  [req]
-    (prn "new connection!!!!! really for real")
     (if-let [socket (try
                       @(http/websocket-connection req)
                       (catch Exception e
