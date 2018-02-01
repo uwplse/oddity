@@ -61,19 +61,20 @@
   {:position [<x> <y>] :value <v> :path <path>}"
   ([tree dx dy] (layout tree dx dy 0 0 [] nil))
   ([tree dx dy x y path parent]
-   (let [root-layout {:position [x y] :value (root tree) :path path :parent parent}]
-     (cons root-layout
-           (apply concat
-                  (loop [index 0
-                         child-layouts []
-                         next-y y]
-                    (if (>= index (count (children tree)))
-                      child-layouts
-                      (let [child (nth (children tree) index)
-                            new-x (+ x dx)
-                            new-y next-y
-                            new-path (conj path index)
-                            child-layout (layout child dx dy new-x new-y new-path [x y])
-                            max-y (apply min (for [{[descendant-x descendant-y] :position} child-layout]
-                                               descendant-y))]
-                        (recur (inc index) (conj child-layouts child-layout) (- max-y dy))))))))))
+   (if tree
+     (let [root-layout {:position [x y] :value (root tree) :path path :parent parent}]
+       (cons root-layout
+             (apply concat
+                    (loop [index 0
+                           child-layouts []
+                           next-y y]
+                      (if (>= index (count (children tree)))
+                        child-layouts
+                        (let [child (nth (children tree) index)
+                              new-x (+ x dx)
+                              new-y next-y
+                              new-path (conj path index)
+                              child-layout (layout child dx dy new-x new-y new-path [x y])
+                              max-y (apply min (for [{[descendant-x descendant-y] :position} child-layout]
+                                                 descendant-y))]
+                          (recur (inc index) (conj child-layouts child-layout) (- max-y dy)))))))))))

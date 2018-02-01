@@ -37,10 +37,10 @@
 (defn translate [x y]
   (gs/format "translate(%d %d)" x y))
 
-(defonce events (reagent/atom (event-source/event-source-static-example)))
+(defonce events (reagent/atom nil))
 (defonce state (reagent/atom nil))
 (defonce server-positions (reagent/atom nil))
-(defonce event-history (reagent/atom (trees/leaf {:state @state :events @events})))
+(defonce event-history (reagent/atom nil))
 (defonce selected-event-path (reagent/atom []))
 (defonce inspect (reagent/atom nil))
 
@@ -142,7 +142,10 @@
             (swap! selected-event-path conj next-event-index)
             (do
               (let [[new-event-history new-selected-event-path]
-                    (trees/append-path @event-history @selected-event-path new-event-for-history)]
+                    (if (nil? @event-history)
+                      [(trees/leaf new-event-for-history) []]
+                      (trees/append-path @event-history
+                                         @selected-event-path new-event-for-history))]
                 (reset! event-history new-event-history)
                 (reset! selected-event-path (vec new-selected-event-path)))))))
       (reset! events evs)
@@ -511,11 +514,12 @@
 
 (defn next-event-button []
   (let []
-    (fn [n] 
-      [:button {:on-click
-                (fn []
-                  (do-next-event nil))}
-       "Random next event"])))
+    (fn [n]
+      (if @events
+        [:button {:on-click
+                  (fn []
+                    (do-next-event nil))}
+         "Random next event"]))))
 
 
 (defn reset-events-button []
