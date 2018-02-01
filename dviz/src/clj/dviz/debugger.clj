@@ -63,10 +63,12 @@
     (swap! st assoc :server server)
     st))
 
-(defn quit [st id]
-  (doseq [[_ socket] (get-in @st [:sessions id :sockets])]
+(defn quit [st]
+  (doseq [[id session] (get @st :sessions)
+          [_ socket] (get session :sockets)]
     (s/put! socket {:msgtype "quit"})
-    (s/close! socket)))
+    (s/close! socket))
+  (swap! st assoc :sessions {}))
 
 (defn send-message [st msg]
   (let [socket (get-in @st [:sessions (get msg "id") :sockets (get msg "to")])]
