@@ -215,7 +215,7 @@
                             (dec-at-key delivered-message))]
         (if (and (= (new-counts delivered-message) 0)
                  (delivered-before-sent (rest remaining) delivered-message))
-          (recur (inc-at-key new-counts delivered-message)
+          (recur (inc-at-key delivered-message new-counts)
                  (rest remaining)
                  (into trace [{"duplicate-message" (get t "deliver-message")} t]))
           (recur new-counts (rest remaining) (into trace [t])))))))
