@@ -1,8 +1,8 @@
 language: clojure
 before_install: cd dviz
 script:
-  npm install &
-  npm run build &
+  npm install &&
+  npm run build &&
   lein uberjar
 deploy:
   provider: releases
