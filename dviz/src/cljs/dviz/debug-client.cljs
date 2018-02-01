@@ -188,30 +188,37 @@
     (update m k inc)
     m))
 
-(defn net-msg-counts [trace]
-  (loop [counts {} remaining trace]
-    (if (empty? remaining)
-      counts
-      (let [t (first remaining)
-            new-messages (map canonicalize-message (get t "send-messages"))
-            delivered-message (if-let [m (get t "deliver-message")]
-                                (canonicalize-message m))]
-        (recur
-         (->> counts
-              (merge-with + (frequencies new-messages))
-              (dec-at-key delivered-message))
-         (rest remaining))))))
+(defn message-diffs [trace-entry]
+  [(map canonicalize-message (get trace-entry "send-messages"))
+   (if-let [m (get trace-entry "deliver-message")]
+     (canonicalize-message m))
+   ])
 
+(defn delivered-before-sent [trace msg]
+  (loop [remaining trace]
+    (if (empty? remaining) false
+        (let [t (first remaining)
+              [new-messages delivered-message] (message-diffs t)]
+          (cond
+            (= delivered-message msg) true
+            (contains? new-messages msg) false
+            :else (recur (rest remaining)))))))
 
 (defn preprocess-trace [trace]
-  (loop [counts (net-msg-counts trace) remaining trace trace []]
+  (loop [counts {} remaining trace trace []]
     (if (empty? remaining)
       trace
       (let [t (first remaining)
-            delivered (canonicalize-message (get t "deliver-message"))]
-        (if (< (counts delivered) 0)
-          (recur (inc-at-key delivered counts) (rest remaining) (into trace [{"duplicate-message" (get t "deliver-message")} t]))
-          (recur counts (rest remaining) (into trace [t])))))))
+            [new-messages delivered-message] (message-diffs t)
+            new-counts (->> counts
+                            (merge-with + (frequencies new-messages))
+                            (dec-at-key delivered-message))]
+        (if (and (= (new-counts delivered-message) 0)
+                 (delivered-before-sent (rest remaining) delivered-message))
+          (recur (inc-at-key new-counts delivered-message)
+                 (rest remaining)
+                 (into trace [{"duplicate-message" (get t "deliver-message")} t]))
+          (recur new-counts (rest remaining) (into trace [t])))))))
 
 (defn debug-socket [state-atom]
   (let [in (chan) out (chan)]
