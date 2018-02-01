@@ -644,7 +644,7 @@
         [:br]
         (if (= (:status @st) :processing) "Processing..." "Ready")
         [:br]
-        (when-not (:started @st)
+        (when (and (not (:started @st)) (not (empty? (:servers @st))))
           [:div
            [:a {:href "#"
                 :on-click (fn []
