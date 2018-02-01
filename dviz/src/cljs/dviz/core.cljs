@@ -414,14 +414,23 @@
   (component-map-indexed [:g {:style {:background "white"}}] server (:servers state) state static))
 
 (defn history-move [path]
-  (let [{new-state :state new-events :events} (trees/root (trees/get-path @event-history path))
-        ch (chan)]
-    (event-source/reset new-events ch)
-    (go
-      (let [new-events (<! ch)]
-        (reset! state new-state)
-        (reset! events new-events)
-        (reset! selected-event-path path)))))
+  (when-let [history-event (trees/get-path @event-history path)]
+    (let [{new-state :state new-events :events} (trees/root history-event)
+          ch (chan)]
+      (event-source/reset new-events ch)
+      (go
+        (let [new-events (<! ch)]
+          (reset! state new-state)
+          (reset! events new-events)
+          (reset! selected-event-path path))))))
+
+(defn history-move-next []
+  (let [new-path (trees/nth-child-path @selected-event-path 0)]
+    (history-move new-path)))
+
+(defn history-move-previous []
+  (let [new-path (trees/parent-path @selected-event-path)]
+    (history-move new-path)))
 
 (defn history-view-event-line [path [x y] event parent-position]
   (debug-render "history-view-event-line")
@@ -687,7 +696,18 @@
 (defn mount-root []
   (reagent/render [current-page] (.getElementById js/document "app")))
 
+(defn keypress-handler [evt]
+  (prn evt)
+  (prn (.-keyCode evt))
+  (cond
+    (= (.-keyCode evt) 110) (history-move-next)
+    (= (.-keyCode evt) 112) (history-move-previous)))
+
+(defn bind-keys []
+  (.addEventListener js/document "keypress" keypress-handler))
+
 (defn init! []
+  (bind-keys)
   (next-event-loop)
   (accountant/configure-navigation!
    {:nav-handler

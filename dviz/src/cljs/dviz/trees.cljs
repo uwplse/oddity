@@ -30,10 +30,20 @@
       [(cons (root tree) (set-nth (children tree) n subtree'))
        (cons n path')])))
 
+(defn parent-path [path]
+  (take (dec (count path)) path))
+
+(defn nth-child-path [path n]
+  (concat path [n]))
+
 (defn get-path [tree path]
   (if (empty? path)
     tree
-    (recur (nth (children tree) (first path)) (rest path))))
+    (let [child-index (first path)
+          my-children (children tree)]
+      (if (>= child-index (count my-children))
+        nil
+        (recur (nth (children tree) (first path)) (rest path))))))
 
 (defn get-whole-path
   ([tree path] (get-whole-path tree path []))
