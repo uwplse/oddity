@@ -23,7 +23,8 @@
             [alandipert.storage-atom :refer [local-storage]]
             [clojure.data :refer [diff]]
             [haslett.client :as ws]
-            [haslett.format :as ws-fmt]))
+            [haslett.format :as ws-fmt]
+            [webpack.bundle]))
 
 (def DEBUG false)
 
@@ -178,6 +179,7 @@
     (nth colors index)))
 
 (def transition-group (reagent/adapt-react-class js/ReactTransitionGroup.TransitionGroup))
+(def json-tree (aget js/window "deps" "react-json-tree" "default"))
 
 (defn server-position [state id]
   (if-let [pos (get @server-positions id)]
@@ -209,13 +211,13 @@
                    (non-propagating-event-handler (fn [])))
                  :on-mouse-down
                  (when (not static)
-                   (non-propagating-event-handler 
-                    (fn [e]
-                      (case (.-button e)
-                        2 (reset! inspect {:x (+ inbox-loc-x 5) :y (+ inbox-loc-y (* index -40))
-                                           :value (:body message)
-                                           :actions (:actions message)})
-                        0 (when-let [[name action] (first (:actions message))] (do-next-event action))))))}]
+                   (fn [e]
+                     (case (.-button e)
+                       2 (do (reset! inspect {:x (+ inbox-loc-x 5) :y (+ inbox-loc-y (* index -40))
+                                              :value (:body message)
+                                              :actions (:actions message)})
+                             (.preventDefault e) (.stopPropagation e))
+                       0 (when-let [[name action] (first (:actions message))] (do-next-event action)))))}]
          [:text {:style {:pointer-events "none" :user-select "none"} :text-anchor "end"
                  :transform (translate -10 20)}
           (:type message)]]))))
@@ -259,13 +261,13 @@
                 (non-propagating-event-handler (fn [])))
               :on-mouse-down
               (when (not static)
-                (non-propagating-event-handler 
-                 (fn [e]
-                   (case (.-button e)
-                     2 (reset! inspect {:x (+ inbox-loc-x 5) :y (+ inbox-loc-y (* index -40))
-                                        :value (:body timeout)
-                                        :actions (:actions timeout)})
-                     0 (when-let [[name action] (first (:actions timeout))] (do-next-event action))))))}
+                (fn [e]
+                  (case (.-button e)
+                    2 (do (reset! inspect {:x (+ inbox-loc-x 5) :y (+ inbox-loc-y (* index -40))
+                                           :value (:body timeout)
+                                           :actions (:actions timeout)})
+                          (.preventDefault e) (.stopPropagation e))
+                    0 (when-let [[name action] (first (:actions timeout))] (do-next-event action)))))}
           [:rect {:width 40 :height 30}]
           [:text {:style {:pointer-events "none" :user-select "none"} :x 20 :y 15 :text-anchor "middle" :alignment-baseline "central"} "⌛"]]
          [:text {:style {:pointer-events "none" :user-select "none"}
@@ -553,7 +555,9 @@
     [:div {:style {:position "absolute" :top y :left x
                    :border "1px solid black" :background "white"
                    :padding "10px"}}
-     [:span (pr-str value)]
+     [:> json-tree {:hideRoot true :invertTheme true
+                    :theme "bright"
+                    :data (clj->js value)}]
      [:br]
      (doall (for [[name action] actions]
               ^{:key name} [:button {:on-click (fn [] (do-next-event action))} name]))]))
@@ -670,7 +674,7 @@
      [:svg {:xmlnsXlink "http://www.w3.org/1999/xlink"
             :width 800 :height 600 :style {:border "1px solid black"}
             :viewBox "0 0 800 600"
-            :on-click #(reset! inspect nil)}
+            :on-mouse-down #(reset! inspect nil)}
       (nw-state @state false)]
      [:br]
      [next-event-button]

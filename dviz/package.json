@@ -1,0 +1,14 @@
+{
+  "name": "dviz",
+  "version": "0.0.1",
+  "author": "doug.woos@gmail.com",
+  "scripts": {
+    "build": "webpack -p"
+  },
+  "dependencies": {
+    "webpack": "3.10.0",
+    "react-json-tree": "0.11.0",
+    "react": "15.5.4",
+    "react-dom": "15.5.4"
+  }
+}

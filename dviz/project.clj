@@ -6,7 +6,8 @@
 
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [ring-server "0.4.0"]
-                 [reagent "0.7.0"]
+                 [reagent "0.7.0"
+                  :exclusions [cljsjs.react cljsjs.react-dom]]
                  [cljsjs/react-transition-group "1.1.3-0"]
                  [reagent-utils "0.2.1"]
                  [ring "1.6.1"]
@@ -76,7 +77,10 @@
              {:output-to "target/deploy/public/js/app.js"
               :output-dir "target/deploy-tmp"
               :optimizations :advanced
-              :pretty-print  false}}
+              :pretty-print  false
+              :foreign-libs [{:file "src/js/bundle.js"
+                             :provides ["cljsjs.react" "cljsjs.react.dom" "webpack.bundle"]}]}
+              }
             :app
             {:source-paths ["src/cljs" "src/cljc" "env/dev/cljs"]
              :figwheel {:on-jsload "dviz.core/mount-root"}
@@ -87,13 +91,10 @@
               :output-dir "target/cljsbuild/public/js/out"
               :source-map true
               :optimizations :none
-              :pretty-print  true}}
-
-
-
-            }
-   }
-
+              :pretty-print  true
+              :foreign-libs [{:file "src//js/bundle.js"
+                             :provides ["cljsjs.react" "cljsjs.react.dom" "webpack.bundle"]}]}
+             }}}
 
   :figwheel
   {:http-server-root "public"
