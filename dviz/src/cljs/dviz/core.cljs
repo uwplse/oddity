@@ -560,7 +560,7 @@
                     :data (clj->js value)}]
      [:br]
      (doall (for [[name action] actions]
-              ^{:key name} [:button {:on-click (fn [] (do-next-event action))} name]))]))
+              ^{:key name} [:button {:on-click (fn [] (reset! inspect nil) (do-next-event action))} name]))]))
 
 (defn add-trace [trace-db name trace]
   (let [{:keys [trace servers]} trace]
