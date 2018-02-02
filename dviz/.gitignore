@@ -9,7 +9,7 @@ pom.xml.asc
 /.lein-*
 /.nrepl-port
 */bundle.js
-/resources/public/css/*.min.css
+/resources/public/css/site.min.css
 bundle.js
 node_modules
 /out
