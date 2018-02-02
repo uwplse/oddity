@@ -269,7 +269,7 @@
                           (.preventDefault e) (.stopPropagation e))
                     0 (when-let [[name action] (first (:actions timeout))] (do-next-event action)))))}
           [:rect {:width 40 :height 30}]
-          [:text {:style {:pointer-events "none" :user-select "none"} :x 20 :y 15 :text-anchor "middle" :alignment-baseline "central"} "⌛"]]
+          [:text {:style {:pointer-events "none" :user-select "none" :font-family "Symbola, Symbol"} :x 20 :y 15 :text-anchor "middle" :alignment-baseline "middle"} "⌛"]]
          [:text {:style {:pointer-events "none" :user-select "none"}
                  :text-anchor "end"
                  :transform (translate -10 20)}
