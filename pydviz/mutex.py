@@ -5,11 +5,12 @@ from copy import deepcopy
 
 class HandlerReturn(object):
 
-    def __init__(self, state):
+    def __init__(self, name, state):
+        self._name = name
         self._messages = []
         self._updates = []
         self._state = deepcopy(state)
-        self._timeouts = {}
+        self._timeouts = []
         self._cleared_timeouts = []
 
     def get(self, path):
@@ -37,22 +38,24 @@ class HandlerReturn(object):
         v[last_key] = value
 
     def send(self, dst, type, body):
-        self._messages.append({'dst': dst, 'type': type, 'body': body})
+        self._messages.append({'from': self._name, 'to': dst, 'type': type, 'body': body})
             
-    def set_timeout(self, name, seconds):
-        self._timeouts[name] = seconds
+    def set_timeout(self, type, body, seconds=5):
+        self._timeouts.append({'to': self._name, 'type': type, 'body': body})
 
-    def clear_timeout(self, name):
-        self._cleared_timeouts.append(name)
+    def clear_timeout(self, type, body):
+        self._cleared_timeouts.append({'to': self._name, 'type': type, 'body': body})
 
     def finalize(self):
-        return {'state-updates': self._updates, 'messages': self._messages,
-                'timeouts': self._timeouts, 'cleared-timeouts': self._cleared_timeouts}
+        return {'state-updates': self._updates, 'send-messages': self._messages,
+                'set-timeouts': self._timeouts, 'cleared-timeouts': self._cleared_timeouts}
 
     def state(self):
         return self._state
+    
 def send(sock, obj):
     s = json.dumps(obj)
+    print s
     length = struct.pack('!I', len(s))
     sock.sendall(length+s)
 
@@ -100,11 +103,11 @@ class Node(object):
     def _event_loop(self):
         while True:
             msg = recv(self._sock)
-            ret = HandlerReturn(self._state)
+            ret = HandlerReturn(self._name, self._state)
             if msg['msgtype'] == 'msg':
                 self.message_handler(self._name, msg['from'], msg['type'], msg['body'], ret)
             elif msg['msgtype'] == 'timeout':
-                self.timeout_handler(self._name, msg['timeout'], ret)
+                self.timeout_handler(self._name, msg['type'], msg['body'], ret)
             elif msg['msgtype'] == 'start':
                 self._state = {}
                 self.start_handler(self._name, ret)
@@ -116,6 +119,7 @@ class Node(object):
 class MutexServer(Node):
     
     def start_handler(self, name, ret):
+        ret.set([''], {})
         ret.set(['queue'], [(0, 1)])
         for i in range(1, 4):
             if i != name:
@@ -123,10 +127,10 @@ class MutexServer(Node):
         ret.set(['clock'], 1)
         if name == 1:
             ret.set(['lock'], True)
-            ret.set_timeout('release', 5)
+            ret.set_timeout('release', {}, 5)
         else:
             ret.set(['lock'], False)
-            ret.set_timeout('request', 5)
+            ret.set_timeout('request', {}, 5)
 
     def try_get_lock(self, name, ret):
         queue = ret.get(['queue'])
@@ -145,8 +149,8 @@ class MutexServer(Node):
                 return
         # We have the lock
         ret.set(['lock'], True)
-        ret.clear_timeout('request')
-        ret.set_timeout('release', 5)
+        ret.clear_timeout('request', {})
+        ret.set_timeout('release', {}, 5)
             
     def message_handler(self, to, sender, type, body, ret):
         ret.set(['max', sender], body['clock'])
@@ -159,22 +163,22 @@ class MutexServer(Node):
             ret.set(['queue'], [r for r in queue if r[1] != sender])
         self.try_get_lock(to, ret)
 
-    def timeout_handler(self, name, timeout, ret):
+    def timeout_handler(self, name, type, body, ret):
         ret.set(['clock'], ret.get(['clock']) +  1)
-        if timeout == 'request':
+        if type == 'request':
             ret.set(['queue'], ret.get(['queue']) + [(ret.get(['clock']), name)])
             for i in range(1, 4):
                 if i != name:
                     ret.send(i, 'req', {'clock': ret.get(['clock'])})
-        if timeout == 'release':
+        if type == 'release':
             queue = ret.get(['queue'])
             ret.set(['lock'], False)
             ret.set(['queue'], [r for r in queue if r[1] != name])
             for i in range(1, 4):
                 if i != name:
                     ret.send(i, 'rel', {'clock': ret.get(['clock'])})
-            ret.clear_timeout('release')
-            ret.set_timeout('request', 5)
+            ret.clear_timeout('release', {})
+            ret.set_timeout('request', {}, 5)
 
 if __name__ == '__main__':
     import threading

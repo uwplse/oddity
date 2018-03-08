@@ -45,7 +45,7 @@
     (if-let [remote-id (get (:message action) :remote-id)]
       (make-debugger-msg state "msg" {:msg-id remote-id :to (:to (:message action))}) 
       (let [{:keys [from to type body]} (:message action)]
-        (make-debugger-msg state "msg" {:name to :from from :type type :body body})))
+        (make-debugger-msg state "msg" {:to to :from from :type type :body body})))
     :reset
     (make-debugger-msg state "reset" {:log (:log state)})
     :duplicate

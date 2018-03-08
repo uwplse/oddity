@@ -81,7 +81,7 @@
                         [server @(s/take! socket)])))))
 
 (defn send-reset [st id log]
-  (send-start st)
+  (send-start st id)
   (doseq [msg (rest log)]
     (let [socket (get-in @st [:sessions id :sockets (get msg "to")])]
       (s/put! socket msg)
