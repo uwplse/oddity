@@ -58,12 +58,12 @@
   (let [id (:timeout-id-counter (swap! state update-in [:timeout-id-counter] inc))
         t (merge t {:id id})]
     (.log js/console (gs/format "Adding %s to %s" t (get-in @state [:timeouts (:to t)])))
-    (swap! state update-in [:timeouts (:to t)] #(set (conj % t)))))
+    (swap! state update-in [:timeouts (:to t)] #(vec (conj % t)))))
 
 (defn clear-timeout [id t]
   (.log js/console (gs/format "Removing %s from %s" t (get-in @state [:timeouts id])))
   (swap! state update-in [:timeouts id]
-         #(set (remove (partial fields-match [:to :type :body] t) %))))
+         #(vec (remove-one (partial fields-match [:to :type :body] t) %))))
 
 (defn update-server-state [id path val]
   (swap! state (fn [s]
