@@ -44,6 +44,8 @@
 (defonce event-history (reagent/atom nil))
 (defonce selected-event-path (reagent/atom []))
 (defonce inspect (reagent/atom nil))
+;; TODO: get rid of this hack
+(defonce message-extra-add-drop-data (atom nil))
 
 (defn non-propagating-event-handler [f]
   (fn [e] (f e) (.preventDefault e) (.stopPropagation e)))
@@ -71,12 +73,24 @@
 (defn update-server-log [id updates]
   (swap! state update-in [:server-log id] #(vec (conj % updates))))
 
+(defn deliver-message [message]
+  (swap! message-extra-add-drop-data assoc (select-keys message [:from :to :type :body]) :deliver)
+  (swap! state update-in [:messages (:to message)] #(vec (remove-one (partial fields-match [:from :to :type :body] message) %))))
+
 (defn drop-message [message]
+  (swap! message-extra-add-drop-data assoc (select-keys message [:from :to :type :body]) :drop)
   (swap! state update-in [:messages (:to message)] #(vec (remove-one (partial fields-match [:from :to :type :body] message) %))))
 
 (defn duplicate-message [message]
   ;; TODO: make this better
+  (swap! message-extra-add-drop-data assoc (select-keys message [:from :to :type :body]) :dup)
   (add-message message))
+
+(defn send-message [message]
+  ;; TODO: make this better
+  (swap! message-extra-add-drop-data assoc (select-keys message [:from :to :type :body]) :send)
+  (add-message message))
+
 
 (defn index-of [l v]
   (let [i (.indexOf l v)]
@@ -108,6 +122,8 @@
                    (swap! state assoc k v)))))
       ;; process delivered messages
       (when-let [m (:deliver-message ev)]
+        (deliver-message m))
+      (when-let [m (:drop-message ev)]
         (drop-message m))
       (when-let [m (:duplicate-message ev)]
         (duplicate-message m))
@@ -127,7 +143,7 @@
             (update-server-log id updates))))
       ;; process send messages
       (when-let [ms (:send-messages ev)]
-        (doseq [m ms] (add-message m)))
+        (doseq [m ms] (send-message m)))
       ;; process cleared timeouts
       (when-let [ts (:clear-timeouts ev)]
         ;(prn "clearing timeout")
@@ -195,12 +211,21 @@
       (let [[inbox-loc-x inbox-loc-y] inbox-loc]
         [:g {:transform
              (case status
-               :new (let [from-pos (server-position state (:from message))
-                          to-pos (server-position state (:to message))]
-                      (translate (- (:x from-pos) (- (:x to-pos) 80))
-                                 (- (:y from-pos) (:y to-pos))))
+               :new
+               (if (= (get @message-extra-add-drop-data (select-keys message [:from :to :type :body]))
+                      :send)
+                 (let [from-pos (server-position state (:from message))
+                                   to-pos (server-position state (:to message))]
+                               (translate (- (:x from-pos) (- (:x to-pos) 80))
+                                          (- (:y from-pos) (:y to-pos))))
+
+                 (translate 5 0))
                :stable (translate 5 (* index -40))
-               :deleted (translate 50 0))
+               :deleted
+               (if (= (get @message-extra-add-drop-data (select-keys message [:from :to :type :body]))
+                      :deliver)
+                 (translate 50 0)
+                 (translate -100 0)))
              :fill (server-color state (:from message))
              :stroke (server-color state (:from message))
              :style {:transition (when (not static) "transform 0.5s ease-out")}
@@ -225,7 +250,8 @@
 
 (def message-wrapper
   (reagent/create-class
-   {:get-initial-state (fn [] {:status  :new})
+   {:get-initial-state (fn []
+                         {:status  :new})
     :component-will-appear (fn [cb]
                              (this-as this
                                (reagent/replace-state this {:status :stable})

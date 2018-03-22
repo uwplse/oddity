@@ -49,7 +49,8 @@
     :reset
     (make-debugger-msg state "reset" {:log (:log state)})
     :duplicate
-    nil))
+    nil
+    :drop nil))
 
 (defn process-single-response [server-id response]
   (let [remote-id (get response "@id")
@@ -76,7 +77,8 @@
                                            :type (get pre-message "type")
                                            :body (get pre-message "body")}]]
                         (assoc message :actions [["Deliver" {:type :message :message message}]
-                                                 ["Duplicate" {:type :duplicate :message message}]]))]
+                                                 ["Duplicate" {:type :duplicate :message message}]
+                                                 ["Drop" {:type :drop :message message}]]))]
     {:debug "yo"
      :remote-id remote-id
      :states states
@@ -97,10 +99,12 @@
 (defn update-state [state msg event]
   (let [{actions :actions log :log} state
         delivered-message-action {:type :message :message (:deliver-message event)}
+        dropped-message-action {:type :drop :message (:drop-message event)}
         clear-timeout-actions (set (map (fn [[target {body :body}]]
                                           {:type :timeout :timeout [target body]})
                                         (:clear-timeouts event)))
-        removed-actions (conj clear-timeout-actions delivered-message-action)
+        removed-actions (conj (conj clear-timeout-actions delivered-message-action)
+                              dropped-message-action)
         actions (remove #(contains? removed-actions %) actions)
         new-messages (map #(second (first (:actions %))) (conj (:send-messages event) (:duplicate-message event)))
         new-timeouts (map #(second (first (:actions %))) (:set-timeouts event))
@@ -132,8 +136,14 @@
           message-without-actions {:from from :to to :type type :body body :remote-id remote-id}
           message (assoc message-without-actions
                          :actions [["Deliver" {:type :message :message message-without-actions}]
-                                   ["Duplicate" {:type :duplicate :message message-without-actions}]])]
+                                   ["Duplicate" {:type :duplicate :message message-without-actions}]
+                                   ["Drop" {:type :drop :message message-without-actions}]])]
       {:duplicate-message message :debug "duplicate"})
+    :drop
+    (let [{:keys [from to type body remote-id]} (:message action)
+          message-without-actions {:from from :to to :type type :body body :remote-id remote-id}]
+      {:drop-message message-without-actions :debug "drop"})
+
     ))
 
 (defn get-action-and-res [servers trace-entry]
@@ -166,9 +176,19 @@
                               }}
             res trace-entry]
           [action res])
-        (let [action {:type :start}
-              res {"responses" (into {} (for [server servers] [server trace-entry]))}]
-          [action res])) ; handle start
+        (if-let [message (get trace-entry "drop-message")]
+          (let [action {:type :drop
+                        :message {:remote-id (get message "@id")
+                                  :to (get message "to")
+                                  :from (get message "from")
+                                  :type (get message "type")
+                                  :body (get message "body")
+                                  }}
+            res trace-entry]
+          [action res])
+          (let [action {:type :start}
+                res {"responses" (into {} (for [server servers] [server trace-entry]))}]
+            [action res]))) ; handle start
      )))
 
 (defn canonicalize-message [m]
