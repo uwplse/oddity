@@ -218,7 +218,7 @@
                (if (= (get @message-extra-add-drop-data (select-keys message [:from :to :type :body]))
                       :deliver)
                  (translate 50 0)
-                 (translate -100 0)))
+                 (translate -100 (* index -40))))
              :fill (server-color state (:from message))
              :stroke (server-color state (:from message))
              :style {:transition (when (not static) "transform 0.5s ease-out")}
