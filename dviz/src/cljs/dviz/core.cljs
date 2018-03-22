@@ -6,7 +6,7 @@
             [vomnibus.color-brewer :as cb]
             [dviz.circles :as c]
             [dviz.event-source :as event-source]
-            [dviz.util :refer [remove-one paths fields-match]]
+            [dviz.util :refer [remove-one differing-paths fields-match]]
             [dviz.sim]
             [dviz.trees :as trees]
             [dviz.paxos :refer [paxos-sim]]
@@ -21,7 +21,6 @@
             [cljs.core.async :refer [put! take! chan <! >! close!]]
             [clojure.browser.dom :refer [get-element]]
             [alandipert.storage-atom :refer [local-storage]]
-            [clojure.data :refer [diff]]
             [haslett.client :as ws]
             [haslett.format :as ws-fmt]
             [webpack.bundle]))
@@ -96,12 +95,6 @@
   (let [i (.indexOf l v)]
     (if (>= i 0) i nil)))
 
-(defn diff-states [old new]
-  (let [[_ diffs _] (diff old new)]
-    (if diffs 
-      (paths diffs)
-      [])))
-
 (defonce next-event-channel (chan))
 
 (defn handle-state-updates [id updates]
@@ -138,7 +131,7 @@
       (when-let [state-dumps (:states ev)]
         (doseq [[id new-state] state-dumps]
           (.log js/console (gs/format "Updating server %s to state %s" id new-state))
-          (let [updates (diff-states (get-in @state [:server-state id]) new-state)]
+          (let [updates (differing-paths (get-in @state [:server-state id]) new-state)]
             (doseq [[path val] updates] (update-server-state id path val))
             (update-server-log id updates))))
       ;; process send messages
