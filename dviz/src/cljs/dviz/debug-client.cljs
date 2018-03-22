@@ -274,16 +274,14 @@
                             (when-not (empty? remaining)
                               (let [t (first remaining)
                                     [action res] (get-action-and-res servers t)]
-                                (let [msg (assoc (make-msg state action) :state-id (:remote-id st))
+                                (let [msg (assoc (make-msg state action) :state-id (:remote-id state))
                                       event (make-event action res)
                                       state (update-state state msg event)]
                                   (.log js/console (gs/format "Replay event %s" event))
                                   (>! out [event state])
                                   (recur (rest remaining) state))))))
-
                         (and (= (:type action) :reset) (get st :remote-id))
                         (>! out [nil st])
-
                         :else
                         (let [msg (assoc (make-msg st action) :state-id (:remote-id st))
                               res (when (:msgtype msg)
