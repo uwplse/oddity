@@ -1,8 +1,7 @@
-(ns dviz.handler
-  (:require [compojure.core :refer [GET defroutes]]
+(ns dviz.routes
+  (:require [compojure.core :refer [GET routes]]
             [compojure.route :refer [not-found resources]]
             [hiccup.page :refer [include-js include-css html5]]
-            [dviz.middleware :refer [wrap-middleware]]
             [config.core :refer [env]]))
 
 (def mount-target
@@ -24,11 +23,10 @@
      mount-target
      (include-js "/js/app.js")]))
 
-(defroutes routes
-  (GET "/" [] (loading-page))
-  (GET "/about" [] (loading-page))
-  
-  (resources "/")
-  (not-found "Not Found"))
-
-(def app (wrap-middleware #'routes))
+(defn app-routes [endpoint]
+  (routes
+   (GET "/" [] (loading-page))
+   (GET "/about" [] (loading-page))
+   
+   (resources "/")
+   (not-found "Not Found")))

@@ -35,7 +35,11 @@
                  [haslett "0.1.0"]
                  [aleph "0.4.3"]
                  [gloss "0.2.6"]
-                 [manifold "0.1.6"]]
+                 [manifold "0.1.6"]
+                 [com.stuartsierra/component "0.3.2"]
+                 [org.danielsz/system "0.4.1"]
+                 [org.clojure/tools.namespace "0.2.11"]
+                 [reloaded.repl "0.2.4"]]
 
   :plugins [[lein-environ "1.0.2"]
             [lein-cljsbuild "1.1.5"]
@@ -43,52 +47,45 @@
              :exclusions [org.clojure/clojure]]
             [cljs-simple-cache-buster "0.2.1"]]
 
-  :ring {:handler dviz.handler/app
-         :uberwar-name "dviz.war"}
-
   :min-lein-version "2.5.0"
 
   :uberjar-name "dviz.jar"
 
-  :main dviz.server
+  :main dviz.system
 
   :clean-targets ^{:protect false}
   [:target-path
-   [:cljsbuild :builds :app :compiler :output-dir]
-   [:cljsbuild :builds :app :compiler :output-to]
-   [:cljsbuild :builds :deploy :compiler :output-dir]
-   [:cljsbuild :builds :deploy :compiler :output-to]]
+   [:cljsbuild :builds :dev :compiler :output-dir]
+   [:cljsbuild :builds :dev :compiler :output-to]
+   [:cljsbuild :builds :prod :compiler :output-dir]
+   [:cljsbuild :builds :prod :compiler :output-to]]
 
   :source-paths ["src/clj" "src/cljc"]
-  :resource-paths ["resources" "target/cljsbuild" "target/deploy"]
+  :resource-paths ["resources" "target/prod"]
 
   :minify-assets
   {:assets
    {"resources/public/css/site.min.css" "resources/public/css/site.css"}}
 
-  :cljs-simple-cache-buster {:cljsbuild-id "deploy"
-                             :template-file "resources/static/index.html"
-                             :output-to "target/deploy/index.html"}
-  
   :cljsbuild
-  {:builds {:deploy
+  {:builds {:prod
             {:source-paths ["src/cljs" "src/cljc" "env/prod/cljs"]
              :compiler
-             {:output-to "target/deploy/public/js/app.js"
-              :output-dir "target/deploy-tmp"
+             {:output-to "target/prod/public/js/app.js"
+              :output-dir "target/prod/cljs-tmp"
               :optimizations :advanced
               :pretty-print  false
               :foreign-libs [{:file "src/js/bundle.js"
                              :provides ["cljsjs.react" "cljsjs.react.dom" "webpack.bundle"]}]}
               }
-            :app
+            :dev
             {:source-paths ["src/cljs" "src/cljc" "env/dev/cljs"]
              :figwheel {:on-jsload "dviz.core/mount-root"}
              :compiler
              {:main "dviz.dev"
               :asset-path "/js/out"
-              :output-to "target/cljsbuild/public/js/app.js"
-              :output-dir "target/cljsbuild/public/js/out"
+              :output-to "target/dev/public/js/app.js"
+              :output-dir "target/dev/public/js/out"
               :source-map true
               :optimizations :none
               :pretty-print  true
@@ -97,20 +94,11 @@
              }}}
 
   :figwheel
-  {:http-server-root "public"
-   :server-port 3449
-   :nrepl-port 7002
-   :nrepl-middleware ["cemerick.piggieback/wrap-cljs-repl"
-                      "cider.nrepl/cider-middleware"
-                      "refactor-nrepl.middleware/wrap-refactor"
-                      ]
-   :css-dirs ["resources/public/css"]
-   :ring-handler dviz.handler/app}
+  {:css-dirs ["resources/public/css"]}
 
+  :repl-options {:init-ns user}
 
-
-  :profiles {:dev {:repl-options {:init-ns dviz.repl
-                                  :nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]}
+  :profiles {:dev {:repl-options {:nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]}
 
                    :dependencies [[binaryage/devtools "0.9.4"]
                                   [ring/ring-mock "0.3.1"]
@@ -139,7 +127,7 @@
 
              :uberjar {:hooks [minify-assets.plugin/hooks]
                        :source-paths ["env/prod/clj"]
-                       :prep-tasks ["compile" ["cljsbuild" "once" "deploy"]]
+                       :prep-tasks ["compile" ["cljsbuild" "once" "prod"]]
                        :env {:production true}
                        :aot :all
                        :omit-source true}})

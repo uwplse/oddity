@@ -1,5 +1,5 @@
 (ns dviz.middleware
-  (:require [ring.middleware.defaults :refer [site-defaults wrap-defaults]]))
+  (:require [ring.middleware.defaults :refer [api-defaults wrap-defaults]]))
 
 (defn bust-cache-response [response]
   (assoc-in response [:headers "Cache-control"] "no-store"))
@@ -11,7 +11,6 @@
     ([request respond raise]
       (handler request #(respond (bust-cache-response %)) raise))))
 
-(defn wrap-middleware [handler]
-  (-> handler
-      (wrap-defaults site-defaults)
-      (wrap-bust-cache)))
+(defn middleware []
+  [[wrap-defaults api-defaults]
+   wrap-bust-cache])

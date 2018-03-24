@@ -1,5 +1,4 @@
 (ns dviz.debugger
-  (:use [dviz.util])
   (:require [aleph.http :as http]
             [aleph.tcp :as tcp]
             [manifold.stream :as s]
@@ -10,7 +9,8 @@
             [clojure.core.async :refer [go >! <! chan]]
             [compojure.core :refer [routes GET]]
             [compojure.route :as route]
-            [ring.middleware.params :as params]))
+            [ring.middleware.params :as params]
+            [com.stuartsierra.component :as component]))
 
 (def DEFAULT_ID "1")
 
@@ -39,7 +39,6 @@
     {:port port}))
 
 (defn register [s info st]
-  
   (let [msg (s/take! s)]
     (go (let [m @msg]
           (let [id (or (get m "id") DEFAULT_ID)]
@@ -52,59 +51,73 @@
                 (swap! st assoc-in [:sessions id :sockets name] s)))
             (s/put! s {:ok true}))))))
 
-(defn debugger [port]
-  (let [st (atom nil)
-        server (start-tcp-server register port st)]
-    (swap! st assoc :server server)
-    st))
-
-(defn quit [st]
+(defn quit-all-sessions [st]
   (doseq [[id session] (get @st :sessions)
           [_ socket] (get session :sockets)]
     (s/put! socket {:msgtype "quit"})
     (s/close! socket))
   (swap! st assoc :sessions {}))
 
-(defn send-message [st msg]
-  (let [socket (get-in @st [:sessions (get msg "id") :sockets (get msg "to")])]
+(defrecord Debugger [port server state]
+  component/Lifecycle
+
+  (start [component]
+    (when-not (:server component)
+      (let [st (atom nil)
+            server (start-tcp-server register port st)]
+        (assoc component :server server :state st))))
+
+  (stop [component]
+    (when (:server component)
+      (quit-all-sessions state)
+      (.close server)
+      (assoc component :server nil :state nil))))
+
+(defn debugger [port]
+  (map->Debugger {:port port}))
+
+(defn st [dbg] @(get dbg :state))
+
+(defn send-message [dbg msg]
+  (let [socket (get-in (st dbg) [:sessions (get msg "id") :sockets (get msg "to")])]
     (s/put! socket (dissoc msg "id"))
     @(s/take! socket)))
 
 (defn combine-returns [returns]
   {:responses returns})
 
-(defn send-start [st id]
+(defn send-start [dbg id]
   (combine-returns (doall
-                    (for [[server socket] (get-in @st [:sessions id :sockets])]
+                    (for [[server socket] (get-in (st dbg) [:sessions id :sockets])]
                       (do 
                         (s/put! socket {:msgtype "start"})
                         [server @(s/take! socket)])))))
 
-(defn send-reset [st id log]
-  (send-start st id)
+(defn send-reset [dbg id log]
+  (send-start dbg id)
   (doseq [msg (rest log)]
-    (let [socket (get-in @st [:sessions id :sockets (get msg "to")])]
+    (let [socket (get-in (st dbg) [:sessions id :sockets (get msg "to")])]
       (s/put! socket msg)
       @(s/take! socket)))
   {:ok true})
 
-(def non-websocket-request
-  {:status 400
-   :headers {"content-type" "application/text"}
-   :body "Expected a websocket request."})
+(defn quit [dbg] (quit-all-sessions (:state dbg)))
 
 (defn handle-debug-msg [dbg msg]
   (let [msg (json/read-str msg)
         resp (cond
                (= "servers" (get msg "msgtype"))
-               (into {} (for [[id st] (:sessions @dbg)]
-                          [id {:servers (keys (get st :sockets)) :trace (get st :trace)}]))
+               (into {} (for [[id s] (:sessions (st dbg))]
+                          [id {:servers (keys (get s :sockets)) :trace (get s :trace)}]))
                (= "start" (get msg "msgtype")) (send-start dbg (get msg "id"))
                (= "reset" (get msg "msgtype")) (send-reset dbg (get msg "id") (get msg "log"))
                :else (send-message dbg msg))]
     (json/write-str resp)))
 
-(def DEBUGGER-PORT 4343)
+(def non-websocket-request
+  {:status 400
+   :headers {"content-type" "application/text"}
+   :body "Expected a websocket request."})
 
 (defn debug-handler [dbg]
   (fn  [req]
@@ -144,13 +157,18 @@
       (GET "/debug" [] (debug-handler dbg))
       (route/not-found "No such page."))))
 
-(defn debugger-websocket-server [port dbg]
-  (http/start-server (handler dbg) {:port port}))
+(defrecord DebuggerWebsocketServer [port debugger]
+  component/Lifecycle
 
-(defn start-debugger []
-  (let [dbg (debugger DEBUGGER-PORT)
-        ws (debugger-websocket-server 5000 dbg)]
-    {:dbg dbg :ws ws}))
+  (start [component]
+    (when-not (:server component)
+      (let [server (http/start-server (handler debugger) {:port port})]
+        (assoc component :server server))))
 
-(defn http-client [] (http/websocket-client "ws://localhost:5000/debug"))
+  (stop [component]
+    (when (:server component)
+      (.close (:server component))
+      (assoc component :server nil))))
 
+(defn debugger-websocket-server [port]
+  (map->DebuggerWebsocketServer {:port port}))
