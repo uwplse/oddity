@@ -33,7 +33,7 @@
                  [cljsjs/filesaverjs "1.3.3-0"]
                  [alandipert/storage-atom "2.0.1"]
                  [haslett "0.1.0"]
-                 [aleph "0.4.3"]
+                 [aleph "0.4.4"]
                  [gloss "0.2.6"]
                  [manifold "0.1.6"]
                  [com.stuartsierra/component "0.3.2"]
