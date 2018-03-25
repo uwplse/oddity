@@ -58,7 +58,9 @@
                        (for [{path "path" value "value"}
                              (get response "state-updates")]
                          [path value])}
-        states {server-id (get-in response ["states" server-id])}
+        states (if (contains? response "states")
+                 {server-id (get-in response ["states" server-id])}
+                 {})
         set-timeouts (for [pre-timeout (get response "set-timeouts")
                            :when (= (get pre-timeout "to") server-id)
                            :let [timeout {:remote-id (get pre-timeout "@id")
