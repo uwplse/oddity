@@ -45,6 +45,7 @@
 (defonce inspect (reagent/atom nil))
 ;; TODO: get rid of this hack
 (defonce message-extra-add-drop-data (atom nil))
+(defonce main-window-zoom (reagent/atom 1))
 
 (defn non-propagating-event-handler [f]
   (fn [e] (f e) (.preventDefault e) (.stopPropagation e)))
@@ -392,8 +393,8 @@
          (let [x (.-clientX e)
                y (.-clientY e)]
            (swap! server-positions assoc id
-                  {:x (- @xstart-on-down (- @starting-mouse-x x))
-                   :y (- @ystart-on-down (- @starting-mouse-y y))})))]
+                  {:x (- @xstart-on-down (* @main-window-zoom (- @starting-mouse-x x)))
+                   :y (- @ystart-on-down (* @main-window-zoom (- @starting-mouse-y y)))})))]
     (fn [state static index id]
       (debug-render "server")
       (let [pos (server-position state id)
@@ -475,11 +476,12 @@
               :stroke-width 5
               :style {:z-index 5}}]]])
 
-(defn history-event-inspector [inspect-event zoom xstart ystart]
+(defn history-event-inspector [inspect-event zoom xstart actual-width ystart]
   (when-let [[x y event] @inspect-event]
     (debug-render "history-event-inspector")
+    (prn @actual-width)
     [:div {:style {:position "absolute"
-                   :left (/ (-  x @xstart) @zoom)
+                   :left (/ (+ (/ (- 750 750) 2) (-  x @xstart)) @zoom)
                    :bottom 110
                    :z-index 100}}
      [:svg {:xmlnsXlink "http://www.w3.org/1999/xlink"
@@ -498,6 +500,10 @@
        (for [{:keys [position value path parent]} layout]
          ^{:key [path]} [history-view-event path position value parent inspect-event (= path @selected-event-path)]))))])
 
+(defn plus-not-below-1 [a b]
+  (let [c (+ a b)]
+    (if (>= c 1) c a)))
+
 (defn history-view []
   (let [xstart (reagent/atom 0)
         ystart (reagent/atom 0)
@@ -507,12 +513,16 @@
         xstart-on-down (reagent/atom nil)
         ystart-on-down (reagent/atom nil)
         zoom (reagent/atom 1)
-        inspect-event (reagent/atom nil)]
+        inspect-event (reagent/atom nil)
+        actual-width (reagent/atom 100)]
     (fn []
       (debug-render "history-view")
       [:div {:style {:position "relative"}}
        [:svg {:xmlnsXlink "http://www.w3.org/1999/xlink"
-              :width 750 :height 100
+              :preserveAspectRatio "xMinYMin"
+              :ref (fn [elem] (when elem
+                                (reset! actual-width (.-value (.-baseVal (.-width elem))))))
+              :width "100%" :height 100
               :viewBox (gs/format "%d %d %d %d" @xstart @ystart (* 750 @zoom) (* 100 @zoom))
               :style {:border "1px solid black"}
               :on-mouse-down (fn [e]
@@ -527,10 +537,11 @@
                                (when @is-mouse-down
                                  (let [x (.-clientX e)
                                        y (.-clientY e)]
-                                   (reset! xstart (+ @xstart-on-down (- @starting-mouse-x x)))
-                                   (reset! ystart (+ @ystart-on-down (- @starting-mouse-y y))))))}
+                                   (reset! xstart (+ @xstart-on-down (* @zoom (- @starting-mouse-x x))))
+                                   (reset! ystart (+ @ystart-on-down (* @zoom (- @starting-mouse-y y)))))))
+              :on-wheel (non-propagating-event-handler (fn [e] (swap! zoom plus-not-below-1 (* .1 (.-deltaY e)))))}
         [history-view-tree inspect-event]]
-       [history-event-inspector inspect-event zoom xstart ystart]
+       [history-event-inspector inspect-event zoom xstart actual-width ystart]
        [:button {:on-click #(swap! zoom - .1)} "+"]
        [:button {:on-click #(swap! zoom + .1)} "-"]])))
 
@@ -572,7 +583,7 @@
 (defn inspector []
   (when-let [{:keys [x y value actions]} @inspect]
     (debug-render "inspector")
-    [:div {:style {:position "absolute" :top y :left x
+    [:div {:style {:position "absolute" :top (/ y @main-window-zoom) :left (/ x @main-window-zoom)
                    :border "1px solid black" :background "white"
                    :padding "10px"}}
      [:> json-tree {:hideRoot true :invertTheme true
@@ -687,15 +698,22 @@
                               (do-next-event {:type :trace :trace trace}))}
               "Debug trace"])])]])))
 
+(defn main-window []
+  (fn []
+    (prn @main-window-zoom)
+    [:svg {:xmlnsXlink "http://www.w3.org/1999/xlink"
+           :width "100%" :height 600 :style {:border "1px solid black"}
+           :viewBox (gs/format "%d %d %d %d" 0 0 (* 800 @main-window-zoom) (* 600 @main-window-zoom))
+           :preserveAspectRatio "xMinYMin"
+           :on-mouse-down #(reset! inspect nil)
+           :on-wheel (non-propagating-event-handler (fn [e] (swap! main-window-zoom plus-not-below-1 (* .01 (.-deltaY e)))))}
+     (nw-state @state false)]))
+
 (defn home-page []
   (fn []
     (debug-render "home page")
     [:div {:style {:position "relative"}}
-     [:svg {:xmlnsXlink "http://www.w3.org/1999/xlink"
-            :width 800 :height 600 :style {:border "1px solid black"}
-            :viewBox "0 0 800 600"
-            :on-mouse-down #(reset! inspect nil)}
-      (nw-state @state false)]
+     [main-window]
      [:br]
      [next-event-button]
      [reset-server-positions-button]
