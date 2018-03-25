@@ -548,11 +548,13 @@
                                    (reset! ystart (+ @ystart-on-down (* @zoom (- @starting-mouse-y y)))))))
               :on-wheel (non-propagating-event-handler
                          (fn [e]
-                           (let [change (* .1 (.-deltaY e))]
-                             (when (>= (+ @zoom change) 1)
-                               (swap! xstart - (* change (- (.-clientX e) @left)))
-                               (swap! ystart - (* change (- (.-clientY e) @top)))
-                               (swap! zoom + change)))))}
+                           (let [change (* (inc (js/Math.log @zoom)) .05 (.-deltaY e))]
+                             (if (>= (+ @zoom change) 1)
+                               (do
+                                (swap! xstart - (* change (- (.-clientX e) @left)))
+                                (swap! ystart - (* change (- (.-clientY e) @top)))
+                                (swap! zoom + change))
+                               (reset! zoom 1)))))}
         [history-view-tree inspect-event]]
        [history-event-inspector inspect-event zoom xstart actual-width ystart]])))
 
@@ -745,11 +747,13 @@
                             @ystart-on-down))))
              :on-wheel (non-propagating-event-handler
                         (fn [e]
-                          (let [change (* .01 (.-deltaY e))]
-                            (when (>= (+ @main-window-zoom change) 1)
-                              (swap! main-window-xstart - (* change (- (.-clientX e) @left)))
-                              (swap! main-window-ystart - (* change (- (.-clientY e) @top)))
-                              (swap! main-window-zoom plus-not-below-1 (* .01 (.-deltaY e)))))))}
+                          (let [change (* (inc (js/Math.log10 @main-window-zoom)) .05 (.-deltaY e))]
+                            (if (>= (+ @main-window-zoom change) 1)
+                              (do
+                                (swap! main-window-xstart - (* change (- (.-clientX e) @left)))
+                                (swap! main-window-ystart - (* change (- (.-clientY e) @top)))
+                                (swap! main-window-zoom + change))
+                              (reset! main-window-zoom 1)))))}
        (nw-state @state false)])))
 
 (defn home-page []
