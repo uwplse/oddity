@@ -46,6 +46,8 @@
 ;; TODO: get rid of this hack
 (defonce message-extra-add-drop-data (atom nil))
 (defonce main-window-zoom (reagent/atom 1))
+(defonce main-window-xstart (reagent/atom 0))
+(defonce main-window-ystart (reagent/atom 0))
 
 (defn non-propagating-event-handler [f]
   (fn [e] (f e) (.preventDefault e) (.stopPropagation e)))
@@ -426,14 +428,17 @@
              (doall (map-indexed (fn [index upd] ^{:key index} [server-log-entry-wrapper upd])
                                  (get-in state [:server-log id])))]])
          [:circle {:fill "black" :stroke "black" :cx 25 :cy 30 :r 5
-                   :on-mouse-down (fn [e]
-                                    (reset! starting-mouse-x (.-clientX e))
-                                    (reset! starting-mouse-y (.-clientY e))
-                                    (reset! xstart-on-down (:x pos))
-                                    (reset! ystart-on-down (:y pos))
-                                    (.addEventListener js/document "mousemove" mouse-move-handler)
-                                    (.addEventListener js/document "mouseup"
-                                                       (fn [] (.removeEventListener js/document "mousemove" mouse-move-handler))))}]]))))
+                   :on-mouse-down
+                   (non-propagating-event-handler
+                    (fn [e]
+                      (reset! starting-mouse-x (.-clientX e))
+                      (reset! starting-mouse-y (.-clientY e))
+                      (reset! xstart-on-down (:x pos))
+                      (reset! ystart-on-down (:y pos))
+                      (.addEventListener js/document "mousemove" mouse-move-handler)
+                      (.addEventListener js/document "mouseup"
+                                         (fn [] (.removeEventListener js/document "mousemove"
+                                                                      mouse-move-handler)))))}]]))))
 
 (defn nw-state [state static]
   (component-map-indexed [:g {:style {:background "white"}}] server (:servers state) state static))
@@ -479,7 +484,6 @@
 (defn history-event-inspector [inspect-event zoom xstart actual-width ystart]
   (when-let [[x y event] @inspect-event]
     (debug-render "history-event-inspector")
-    (prn @actual-width)
     [:div {:style {:position "absolute"
                    :left (/ (+ (/ (- 750 750) 2) (-  x @xstart)) @zoom)
                    :bottom 110
@@ -514,14 +518,17 @@
         ystart-on-down (reagent/atom nil)
         zoom (reagent/atom 1)
         inspect-event (reagent/atom nil)
-        actual-width (reagent/atom 100)]
+        actual-width (reagent/atom 100)
+        top (reagent/atom 0)
+        left (reagent/atom 0)]
     (fn []
       (debug-render "history-view")
       [:div {:style {:position "relative"}}
        [:svg {:xmlnsXlink "http://www.w3.org/1999/xlink"
               :preserveAspectRatio "xMinYMin"
               :ref (fn [elem] (when elem
-                                (reset! actual-width (.-value (.-baseVal (.-width elem))))))
+                                (reset! top (.-top (.getBoundingClientRect elem)))
+                                (reset! left (.-left (.getBoundingClientRect elem)))))
               :width "100%" :height 100
               :viewBox (gs/format "%d %d %d %d" @xstart @ystart (* 750 @zoom) (* 100 @zoom))
               :style {:border "1px solid black"}
@@ -539,11 +546,15 @@
                                        y (.-clientY e)]
                                    (reset! xstart (+ @xstart-on-down (* @zoom (- @starting-mouse-x x))))
                                    (reset! ystart (+ @ystart-on-down (* @zoom (- @starting-mouse-y y)))))))
-              :on-wheel (non-propagating-event-handler (fn [e] (swap! zoom plus-not-below-1 (* .1 (.-deltaY e)))))}
+              :on-wheel (non-propagating-event-handler
+                         (fn [e]
+                           (let [change (* .1 (.-deltaY e))]
+                             (when (>= (+ @zoom change) 1)
+                               (swap! xstart - (* change (- (.-clientX e) @left)))
+                               (swap! ystart - (* change (- (.-clientY e) @top)))
+                               (swap! zoom + change)))))}
         [history-view-tree inspect-event]]
-       [history-event-inspector inspect-event zoom xstart actual-width ystart]
-       [:button {:on-click #(swap! zoom - .1)} "+"]
-       [:button {:on-click #(swap! zoom + .1)} "-"]])))
+       [history-event-inspector inspect-event zoom xstart actual-width ystart]])))
 
 (defn next-event-button []
   (let []
@@ -583,7 +594,7 @@
 (defn inspector []
   (when-let [{:keys [x y value actions]} @inspect]
     (debug-render "inspector")
-    [:div {:style {:position "absolute" :top (/ y @main-window-zoom) :left (/ x @main-window-zoom)
+    [:div {:style {:position "absolute" :top (/ (- y @main-window-ystart) @main-window-zoom) :left (/ (- x @main-window-xstart) @main-window-zoom)
                    :border "1px solid black" :background "white"
                    :padding "10px"}}
      [:> json-tree {:hideRoot true :invertTheme true
@@ -699,15 +710,47 @@
               "Debug trace"])])]])))
 
 (defn main-window []
-  (fn []
-    (prn @main-window-zoom)
-    [:svg {:xmlnsXlink "http://www.w3.org/1999/xlink"
-           :width "100%" :height 600 :style {:border "1px solid black"}
-           :viewBox (gs/format "%d %d %d %d" 0 0 (* 800 @main-window-zoom) (* 600 @main-window-zoom))
-           :preserveAspectRatio "xMinYMin"
-           :on-mouse-down #(reset! inspect nil)
-           :on-wheel (non-propagating-event-handler (fn [e] (swap! main-window-zoom plus-not-below-1 (* .01 (.-deltaY e)))))}
-     (nw-state @state false)]))
+  (let [top (reagent/atom 0)
+        left (reagent/atom 0)
+        dragging (reagent/atom false)
+        startx (reagent/atom 0)
+        xstart-on-down (reagent/atom 0)
+        ystart-on-down (reagent/atom 0)
+        starty (reagent/atom 0)]
+    (fn []
+      [:svg {:xmlnsXlink "http://www.w3.org/1999/xlink"
+             :width "100%" :height 600 :style {:border "1px solid black"}
+             :viewBox (gs/format "%d %d %d %d" @main-window-xstart @main-window-ystart (* 800 @main-window-zoom) (* 600 @main-window-zoom))
+             :ref (fn [elem] (when elem
+                               (prn @top)
+                               (reset! top (.-top (.getBoundingClientRect elem)))
+                               (reset! left (.-left (.getBoundingClientRect elem)))))
+             :preserveAspectRatio "xMinYMin"
+             :on-mouse-down (fn [e]
+                              (reset! dragging true)
+                              (reset! startx (.-clientX e))
+                              (reset! starty (.-clientY e))
+                              (reset! xstart-on-down @main-window-xstart)
+                              (reset! ystart-on-down @main-window-ystart)
+                              (reset! inspect nil))
+             :on-mouse-up (fn [] (reset! dragging false))
+             :on-mouse-move
+             (fn [e]
+               (when @dragging
+                 (reset! main-window-xstart
+                         (+ @xstart-on-down
+                            (* @main-window-zoom (- @startx (.-clientX e)))))
+                 (reset! main-window-ystart
+                         (+ (* @main-window-zoom (- @starty (.-clientY e)))
+                            @ystart-on-down))))
+             :on-wheel (non-propagating-event-handler
+                        (fn [e]
+                          (let [change (* .01 (.-deltaY e))]
+                            (when (>= (+ @main-window-zoom change) 1)
+                              (swap! main-window-xstart - (* change (- (.-clientX e) @left)))
+                              (swap! main-window-ystart - (* change (- (.-clientY e) @top)))
+                              (swap! main-window-zoom plus-not-below-1 (* .01 (.-deltaY e)))))))}
+       (nw-state @state false)])))
 
 (defn home-page []
   (fn []
@@ -743,8 +786,6 @@
   (reagent/render [current-page] (.getElementById js/document "app")))
 
 (defn keypress-handler [evt]
-  (prn evt)
-  (prn (.-keyCode evt))
   (cond
     (= (.-keyCode evt) 110) (history-move-next)
     (= (.-keyCode evt) 112) (history-move-previous)))
