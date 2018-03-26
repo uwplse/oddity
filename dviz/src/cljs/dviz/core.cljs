@@ -28,6 +28,13 @@
 
 (def DEBUG false)
 
+(defn delta-from-wheel [zoom e]
+  (let [raw (.-deltaY e)
+        sign (if (< raw 0) -1 1)
+        magnitude (js/Math.abs raw)
+        scale .05]
+    (* scale (* sign (js/Math.log magnitude)))))
+
 (defn debug-render [s & rest]
   (if DEBUG
     (.log js/console (gs/format s rest))))
@@ -554,13 +561,21 @@
                                    (reset! ystart (+ @ystart-on-down (* @zoom (- @starting-mouse-y y)))))))
               :on-wheel (non-propagating-event-handler
                          (fn [e]
-                           (let [change (* (inc (js/Math.log @zoom)) .05 (.-deltaY e))]
-                             (if (>= (+ @zoom change) 1)
-                               (do
+                           (let [change (delta-from-wheel @zoom e)]
+                             (cond
+                              (>= (+ @zoom change) 1)
+                              (do
                                 (swap! xstart - (* change (- (.-clientX e) @left)))
                                 (swap! ystart - (* change (- (.-clientY e) @top)))
                                 (swap! zoom + change))
-                               (reset! zoom 1)))))}
+                              (not (= @zoom 1))
+                              (do
+                                (swap! xstart - (* (- 1 @zoom)
+                                                   (- (.-clientX e) @left)))
+                                (swap! ystart - (* (- 1 @zoom)
+                                                   (- (.-clientY e) @top)))
+                                (reset! zoom 1))
+                              ))))}
         [history-view-tree inspect-event]]
        [history-event-inspector inspect-event zoom xstart actual-width ystart]])))
 
@@ -722,6 +737,7 @@
                  "Debug trace"])])]
           [:span "Waiting for connection to server..."])]])))
 
+
 (defn main-window []
   (let [top (reagent/atom 0)
         left (reagent/atom 0)
@@ -757,13 +773,22 @@
                             @ystart-on-down))))
              :on-wheel (non-propagating-event-handler
                         (fn [e]
-                          (let [change (* (inc (js/Math.log10 @main-window-zoom)) .05 (.-deltaY e))]
-                            (if (>= (+ @main-window-zoom change) 1)
+                          (let [change (delta-from-wheel @main-window-zoom e)]
+                            (cond
+                              (>= (+ @main-window-zoom change) 1)
                               (do
                                 (swap! main-window-xstart - (* change (- (.-clientX e) @left)))
                                 (swap! main-window-ystart - (* change (- (.-clientY e) @top)))
                                 (swap! main-window-zoom + change))
-                              (reset! main-window-zoom 1)))))}
+                              (not (= @main-window-zoom 1))
+                              (do
+                                (swap! main-window-xstart - (* (- 1 @main-window-zoom)
+                                                               (- (.-clientX e) @left)))
+                                (swap! main-window-ystart - (* (- 1 @main-window-zoom)
+                                                               (- (.-clientY e) @top)))
+                                
+                                (reset! main-window-zoom 1))
+                              ))))}
        (nw-state @state false)])))
 
 (defn log-status []
