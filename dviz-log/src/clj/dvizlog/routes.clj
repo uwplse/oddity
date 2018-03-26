@@ -18,7 +18,6 @@
    (POST "/log" req
          (try
            (println "New request")
-           (prn req)
            (write-log db (:body-params req))
            (ok {:ok true})
            (catch Exception e (resp/internal-server-error {:error (str e)}))))
