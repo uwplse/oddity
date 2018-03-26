@@ -27,6 +27,7 @@
                  [cljs-ajax "0.7.2"]
                  [metosin/compojure-api "2.0.0-alpha7"]
                  [org.clojure/java.jdbc "0.7.3"]
+                 [org.xerial/sqlite-jdbc "3.21.0"]
                  [com.cognitect/transit-cljs "0.8.243"]
                  [com.cognitect/transit-clj "0.8.300"]
                  [org.clojure/data.json "0.2.6"]
@@ -39,7 +40,9 @@
                  [com.stuartsierra/component "0.3.2"]
                  [org.danielsz/system "0.4.1"]
                  [org.clojure/tools.namespace "0.2.11"]
-                 [reloaded.repl "0.2.4"]]
+                 [reloaded.repl "0.2.4"]
+                 [org.clojure/tools.cli "0.3.5"]
+                 [clj-http "3.8.0"]]
 
   :plugins [[lein-environ "1.0.2"]
             [lein-cljsbuild "1.1.5"]

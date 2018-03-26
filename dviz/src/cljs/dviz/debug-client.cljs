@@ -245,13 +245,16 @@
 (defn debug-socket [state-atom]
   (let [in (chan) out (chan)]
     (go
-      (let [stream (<! (ws/connect "ws://localhost:5000/debug" {:format ws-fmt/json}))
-            to-server (:sink stream)
-            from-server (:source stream)]
-        (swap! state-atom assoc :status :ready)
-        (swap! state-atom assoc :started false)
-        ;(prn "hello doug")
-        (loop []
+      (let [stream (loop []
+                     (let [conn (ws/connect "ws://localhost:5000/debug" {:format ws-fmt/json})]
+                       (alt!
+                         conn ([c] c)
+                         (timeout 500) (recur))))]
+        (let [to-server (:sink stream)
+              from-server (:source stream)]
+          (swap! state-atom assoc :status :ready)
+          (swap! state-atom assoc :started false)
+          (loop []
             (alt!
               (timeout timeout-duration) (let [res (write-and-read-result to-server
                                                                           {:msgtype "servers"}
@@ -292,7 +295,7 @@
                               state (update-state st msg event)]
                           (>! out [event state])))
                       (swap! state-atom assoc :status :ready)
-                      (recur))))))))
+                      (recur)))))))))
     [in out]))
 
 (defn make-debugger [state-atom]

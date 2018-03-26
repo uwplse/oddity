@@ -11,6 +11,7 @@
             [dviz.trees :as trees]
             [dviz.paxos :refer [paxos-sim]]
             [dviz.debug-client :refer [make-debugger]]
+            [dviz.log-client :as log]
             [goog.string :as gs]
             [goog.string.format]
             [cljsjs.react-transition-group]
@@ -48,6 +49,9 @@
 (defonce main-window-zoom (reagent/atom 1))
 (defonce main-window-xstart (reagent/atom 0))
 (defonce main-window-ystart (reagent/atom 0))
+
+(defonce log-state (reagent/atom nil))
+(defonce logger (log/log-socket log-state))
 
 (defn non-propagating-event-handler [f]
   (fn [e] (f e) (.preventDefault e) (.stopPropagation e)))
@@ -160,11 +164,13 @@
                       (trees/append-path @event-history
                                          @selected-event-path new-event-for-history))]
                 (reset! event-history new-event-history)
-                (reset! selected-event-path (vec new-selected-event-path)))))))
+                (reset! selected-event-path (vec new-selected-event-path))
+                (log/log logger {:path @selected-event-path :state @state}))))))
       (reset! events evs)
       (recur))))
 
 (defn do-next-event [action]
+  (log/log logger {:action action})
   (event-source/next-event @events next-event-channel action))
 
 (def server-circle (c/circle 400 300 150))
@@ -474,7 +480,7 @@
   [:g {:fill "black" :stroke "black"}
    [:g {:transform (translate x y)}
     [:circle {:cx 0 :cy 0 :r 20
-              :on-click #(history-move path)
+              :on-click (fn [] (log/log logger {:click "event" :path path}) (history-move path))
               :on-mouse-over #(reset! inspect [x y event])
               :on-mouse-out #(reset! inspect nil)
               :stroke (if selected "red" "black")
@@ -596,6 +602,7 @@
 (defn inspector []
   (when-let [{:keys [x y value actions]} @inspect]
     (debug-render "inspector")
+    (log/log logger {:inspect value})
     [:div {:style {:position "absolute" :top (/ (- y @main-window-ystart) @main-window-zoom) :left (/ (- x @main-window-xstart) @main-window-zoom)
                    :border "1px solid black" :background "white"
                    :padding "10px"}}
@@ -604,7 +611,8 @@
                     :data (clj->js value)}]
      [:br]
      (doall (for [[name action] actions]
-              ^{:key name} [:button {:on-click (fn [] (reset! inspect nil) (do-next-event action))} name]))]))
+              ^{:key name} [:button {:on-click (fn []
+                                                 (reset! inspect nil) (do-next-event action))} name]))]))
 
 (defn add-trace [trace-db name trace]
   (let [{:keys [trace servers]} trace]
@@ -692,24 +700,27 @@
       (debug-render "debug display")
       [:div {:style {:position "absolute" :top 5 :right 100 :text-align "right"}}
        [:div {:style {:border "1px solid black"}}
-        [:span "Servers: " (clojure.string/join "," (:servers @st))]
-        [:br]
-        (if (= (:status @st) :processing) "Processing..." "Ready")
-        [:br]
-        (when (and (not (:started @st)) (not (empty? (:servers @st))))
-          [:div
-           [:a {:href "#"
-                :on-click (fn []
-                            (reset! events debugger)
-                            (do-next-event {:type :start}))}
-            "Debug!"]
+        (if @debug-display-state
+          [:div 
+           [:span "Servers: " (clojure.string/join "," (:servers @st))]
            [:br]
-           (when-let [trace (:trace @st)]
-             [:a {:href "#"
-                  :on-click (fn []
-                              (reset! events debugger)
-                              (do-next-event {:type :trace :trace trace}))}
-              "Debug trace"])])]])))
+           (if (= (:status @st) :processing) "Processing..." "Ready")
+           [:br]
+           (when (and (not (:started @st)) (not (empty? (:servers @st))))
+             [:div
+              [:a {:href "#"
+                   :on-click (fn []
+                               (reset! events debugger)
+                               (do-next-event {:type :start}))}
+               "Debug!"]
+              [:br]
+              (when-let [trace (:trace @st)]
+                [:a {:href "#"
+                     :on-click (fn []
+                                 (reset! events debugger)
+                                 (do-next-event {:type :trace :trace trace}))}
+                 "Debug trace"])])]
+          [:span "Waiting for connection to server..."])]])))
 
 (defn main-window []
   (let [top (reagent/atom 0)
@@ -724,7 +735,6 @@
              :width "100%" :height 600 :style {:border "1px solid black"}
              :viewBox (gs/format "%d %d %d %d" @main-window-xstart @main-window-ystart (* 800 @main-window-zoom) (* 600 @main-window-zoom))
              :ref (fn [elem] (when elem
-                               (prn @top)
                                (reset! top (.-top (.getBoundingClientRect elem)))
                                (reset! left (.-left (.getBoundingClientRect elem)))))
              :preserveAspectRatio "xMinYMin"
@@ -756,6 +766,20 @@
                               (reset! main-window-zoom 1)))))}
        (nw-state @state false)])))
 
+(defn log-status []
+  (when (:connected @log-state)
+    [:div {:style {:position "absolute" :top 5 :left 5 :border "1px solid black"}}
+     (if (:userid @log-state)
+       [:a {:href "#" :on-click #(go (>! logger {:type :unregister}))} "Disable logging"]
+       [:div
+        [:span "User ID: "]
+        [:input#userid {:type "text"}]
+        [:button {:on-click (fn []
+                              (let [userid (.-value (get-element "userid"))]
+                                (go (>! logger {:type :register :userid userid}))))}
+         "Enable logging"]]
+       )]))
+
 (defn home-page []
   (fn []
     (debug-render "home page")
@@ -767,6 +791,7 @@
      ;[reset-events-button]
      ;[paxos-events-button]
      [history-view]
+     [log-status]
      ;[trace-display]
      [debug-display]
      [inspector]]))

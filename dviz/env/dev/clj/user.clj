@@ -1,6 +1,7 @@
 (ns user
   (:require [dviz.system :refer [app-system]]
             [dviz.middleware :refer [middleware]]
+            [dviz.config :refer [default-config]]
             [com.stuartsierra.component :as component]
             [figwheel-sidecar.config :as fw-config]
             [figwheel-sidecar.system :as fw-sys]
@@ -8,7 +9,8 @@
             [prone.middleware :refer [wrap-exceptions]]
             [ring.middleware.file :refer [wrap-file]]
             [system.components.middleware :refer [new-middleware]]
-            [figwheel-sidecar.repl-api :as figwheel]))
+            [figwheel-sidecar.repl-api :as figwheel]
+            [clojure.java.jdbc :as sql :refer [query]]))
 
 
 (defn debug-middleware [handler debug]
@@ -21,7 +23,7 @@
      (handler request respond raise))))
 
 (defn dev-system []
-  (assoc (app-system)
+  (assoc (app-system (assoc (default-config) :usage-log-url "http://localhost:6000/log"))
          :middleware (new-middleware
                       {:middleware (into [[wrap-file "target/dev/public"]]
                                          (middleware))})
