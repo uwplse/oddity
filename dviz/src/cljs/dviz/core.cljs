@@ -33,7 +33,9 @@
         sign (if (< raw 0) -1 1)
         magnitude (js/Math.abs raw)
         scale .05]
-    (* scale (* sign (js/Math.log magnitude)))))
+    (if-not (= raw 0)
+      (* scale (* sign (js/Math.log magnitude)))
+      0)))
 
 (defn debug-render [s & rest]
   (if DEBUG
