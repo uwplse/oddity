@@ -431,9 +431,15 @@
                      (fn [e]
                        (case (.-button e)
                          2 (reset! inspect {:x (:x pos) :y (:y pos)
-                                            :value server-state})
+                                            :value server-state
+                                            :highlight-paths (map first
+                                                                  (last (get-in state
+                                                                                [:server-log id])))})
                          0 (reset! inspect {:x (:x pos) :y (:y pos)
-                                            :value server-state})))))}]
+                                            :value server-state
+                                            :highlight-paths (map first
+                                                                  (last (get-in state
+                                                                                [:server-log id])))})))))}]
          [:line {:x1 -100 :x2 -50 :y1 0 :y2 0 :stroke-width 10}]
          [:g {:transform (translate -100 -40)}   ; inbox
           [timeouts-and-messages state id [(- (:x pos) 100) (- (:y pos) 40)] static]]
@@ -616,15 +622,61 @@
        "Reset Server Positions"])))
 
 
+(defn prefixes [path]
+  (for [i (range 1 (inc (count path)))]
+    (vec (take i (map str path)))))
+
+(defn path-prefix-set [path-set]
+  (into
+   #{}
+   (concat
+    (mapcat prefixes path-set)
+    (map #(conj (vec %) ::star) path-set))))
+
 (defn inspector []
-  (when-let [{:keys [x y value actions]} @inspect]
+  (when-let [{:keys [x y value highlight-paths actions]} @inspect]
     (debug-render "inspector")
+    (prn highlight-paths)
     (log/log logger {:inspect value})
     [:div {:style {:position "absolute" :top (/ (- y @main-window-ystart) @main-window-zoom) :left (/ (- x @main-window-xstart) @main-window-zoom)
                    :border "1px solid black" :background "white"
                    :padding "10px"}}
-     [:> json-tree {:hideRoot true :invertTheme true
-                    :theme "bright"
+     [:> json-tree {:hideRoot true
+                    :theme
+                    (let [prefix-set (path-prefix-set highlight-paths)
+                          theme-fn
+                          (fn [path]
+                            (let [path (vec (reverse path))]
+                              (when
+                                  (some #(contains? prefix-set (conj % ::star))
+                                        (prefixes path))
+                                {"text-decoration" "underline"}))
+                            )]
+                      (clj->js
+                       {:label (fn [styling path]
+                                 (let [style (get (js->clj styling) "style")
+                                       path (js->clj path)]
+                                   (clj->js {:style (merge style (theme-fn path))})))
+                        :valueLabel (fn [styling type path]
+                                      (let [style (get (js->clj styling) "style")
+                                            path (js->clj path)]
+                                        (clj->js {:style (merge style (theme-fn path))})))
+                        :extend {:base00 "#000000"
+                                 :base01 "#303030"
+                                 :base02 "#505050"
+                                 :base03 "#b0b0b0"
+                                 :base04 "#d0d0d0"
+                                 :base05 "#e0e0e0"
+                                 :base06 "#f5f5f5"
+                                 :base07 "#ffffff"
+                                 :base08 "#fb0120"
+                                 :base09 "#fc6d24"
+                                 :base0A "#fda331"
+                                 :base0B "#a1c659"
+                                 :base0C "#76c7b7"
+                                 :base0D "#6fb3d2"
+                                 :base0E "#d381c3"
+                                 :base0F "#be643c"}}))
                     :data (clj->js value)}]
      [:br]
      (doall (for [[name action] actions]
