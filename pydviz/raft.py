@@ -119,22 +119,23 @@ class RaftServer(Node):
             self.replicate_log(name, ret)
 
     def apply_entry(self, entry, ret):
-        sender = entry['sender']
-        n = entry['n']
-        message = {'n': n}
-        message['cluster'] = self.cluster(ret)
-        ret.send(sender, 'Applied', message)
+        if 'sender' in entry:
+            sender = entry['sender']
+            n = entry['n']
+            message = {'n': n}
+            message['cluster'] = self.cluster(ret)
+            ret.send(sender, 'Applied', message)
 
 
     def currently_reconfiguring(self, ret):
         commit_index = ret.get('commit_index')
         log = ret.get('log')
         max = -1
-        for (i, entry) in log:
+        for (i, entry) in enumerate(log):
             if entry['type'] == 'reconfig':
                 max = i
-        if max < commit_index:
-            return true
+        if max > commit_index:
+            return True
         
     def message_handler(self, to, sender, type, body, ret):
         term = ret.get('term')
@@ -145,6 +146,9 @@ class RaftServer(Node):
             if body['term'] > term:
                 ret.set('voted_for', None)
                 ret.set('state', 'Follower')
+                ret.clear_timeout('Heartbeat', {})
+                ret.clear_timeout('Election', {})
+                ret.set_timeout('Election', {})
                 term = ret.set('term', body['term'])
             if (term <= body['term'] and
                 (max_term < body['max_term'] or
@@ -171,6 +175,9 @@ class RaftServer(Node):
             if body['term'] > term:
                 ret.set('voted_for', None)
                 ret.set('state', 'Follower')
+                ret.clear_timeout('Heartbeat', {})
+                ret.clear_timeout('Election', {})
+                ret.set_timeout('Election', {})
                 term = ret.set('term', body['term'])
             log = ret.get('log')
             if (body['prev_index'] <= self.max_index(ret) and
@@ -206,7 +213,7 @@ class RaftServer(Node):
                         self.apply_entry(log[i], ret)
                         ret.set('commit_index', i)
             else:
-                ret.set('next_index', sender, body['next_index'])
+                ret.set(['next_index', sender], body['next_index'])
                 self.replicate_log(to, ret, nodes=[sender])
 
         elif type == 'AddNode':
