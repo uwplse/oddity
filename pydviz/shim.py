@@ -65,7 +65,7 @@ class HandlerReturn(object):
     
 def send(sock, obj):
     s = json.dumps(obj)
-    print s
+    #print s
     length = struct.pack('!I', len(s))
     sock.sendall(length+s)
 
@@ -89,7 +89,7 @@ class Node(object):
         self._event_loop()
 
     def config(self):
-        return self._cfg
+        return deepcopy(self._cfg)
         
     
     def start_handler(self, name, ret):
@@ -119,13 +119,17 @@ class Node(object):
             msg = recv(self._sock)
             ret = HandlerReturn(self._name, self._state)
             if msg['msgtype'] == 'msg':
+                print "Got message"
                 self.message_handler(self._name, msg['from'], msg['type'], msg['body'], ret)
             elif msg['msgtype'] == 'timeout':
+                print "Got timeout"
                 self.timeout_handler(self._name, msg['type'], msg['body'], ret)
             elif msg['msgtype'] == 'start':
+                print "Got start"
                 self._state = {}
                 self.start_handler(self._name, ret)
             elif msg['msgtype'] == 'quit':
+                print "Got quit"
                 break
             self._state = ret.state()
             send(self._sock, ret.finalize())

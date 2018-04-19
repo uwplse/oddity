@@ -3,12 +3,12 @@ from shim import Node, Shim
 
 class RaftClient(Node):
     def start_handler(self, name, ret):
-        print self.config()
         for cmd in self.config()['cmds']:
             ret.set_timeout('Command', cmd)
         ret.set_timeout('Retransmit', {})
         ret.set('n', 0)
         ret.set('inflight', None)
+        ret.set('cluster', self.config()['cluster'])
 
     def message_handler(self, to, sender, type, body, ret):
         inflight = ret.get('inflight')
@@ -16,9 +16,11 @@ class RaftClient(Node):
         if inflight and body['n'] == n:
             ret.set('n', n+1)
             ret.set('inflight', None)
+            if body['cluster'] != ret.get('cluster'):
+                ret.set('cluster', body['cluster'])
 
     def send_to_cluster(self, type, body, ret):
-        for node in self.config()['cluster']:
+        for node in ret.get('cluster'):
             ret.send(node, type, body)
             
     def timeout_handler(self, name, type, body, ret):
@@ -29,12 +31,12 @@ class RaftClient(Node):
         elif type == 'Command':
             inflight = ret.get('inflight')
             if not inflight:
+                body['body']['n'] = ret.get('n')
                 self.send_to_cluster(body['type'], body['body'], ret)
                 ret.set('inflight', body)
 
 class RaftServer(Node):
     def start_handler(self, name, ret):
-        ret.set('cluster', self.config()['cluster'])
         ret.set('state', 'Follower')
         ret.set('log', [])
         ret.set('commit_index', -1)
@@ -51,7 +53,7 @@ class RaftServer(Node):
         ret.send(to, type, body)
         
     def broadcast(self, name, type, body, ret):
-        for s in ret.get('cluster'):
+        for s in self.cluster(ret):
             if s != name:
                 self.send(s, type, body, ret)
 
@@ -65,9 +67,16 @@ class RaftServer(Node):
             return log[-1]['term']
         return -1
 
+    def cluster(self, ret):
+        log = ret.get('log')
+        for entry in reversed(log):
+            if entry['type'] == 'reconfig':
+                return entry['cluster']
+        return self.config()['cluster']
+    
     def replicate_log(self, name, ret, nodes=None):
         if not nodes:
-            nodes = [node for node in ret.get('cluster') if node != name]
+            nodes = [node for node in self.cluster(ret) if node != name]
         for node in nodes:
             next_index = ret.get('next_index').get(node, self.max_index(ret))
             log = ret.get('log')
@@ -98,6 +107,8 @@ class RaftServer(Node):
                            ret)
 
         elif type == 'Heartbeat':
+            if state != 'Leader':
+                return
             if term != self.max_term(ret):
                 # We're leader and haven't yet committed an entry in our term
                 # Let's commit a dummy entry
@@ -108,8 +119,23 @@ class RaftServer(Node):
             self.replicate_log(name, ret)
 
     def apply_entry(self, entry, ret):
-        print 'Applying entry'
+        sender = entry['sender']
+        n = entry['n']
+        message = {'n': n}
+        message['cluster'] = self.cluster(ret)
+        ret.send(sender, 'Applied', message)
 
+
+    def currently_reconfiguring(self, ret):
+        commit_index = ret.get('commit_index')
+        log = ret.get('log')
+        max = -1
+        for (i, entry) in log:
+            if entry['type'] == 'reconfig':
+                max = i
+        if max < commit_index:
+            return true
+        
     def message_handler(self, to, sender, type, body, ret):
         term = ret.get('term')
         state = ret.get('state')
@@ -132,7 +158,7 @@ class RaftServer(Node):
                 if sender not in votes:
                     votes.append(sender)
                     ret.set('votes', votes)
-                cluster = ret.get('cluster')
+                cluster = self.cluster(ret)
                 if len(votes) > len(cluster) / 2:
                     ret.set('state', 'Leader')
                     ret.clear_timeout('Election', {})
@@ -176,23 +202,59 @@ class RaftServer(Node):
                 match_index[to] = self.max_index(ret)
                 log = ret.get('log')
                 for i in range(ret.get('commit_index')+1, body['max_index']+1):
-                    if sum(match_index.get(node, -1) >= i for node in ret.get('cluster')) > len(ret.get('cluster')) / 2:
+                    if sum(match_index.get(node, -1) >= i for node in self.cluster(ret)) > len(self.cluster(ret)) / 2:
                         self.apply_entry(log[i], ret)
                         ret.set('commit_index', i)
             else:
                 ret.set('next_index', sender, body['next_index'])
                 self.replicate_log(to, ret, nodes=[sender])
+
+        elif type == 'AddNode':
+            if state != 'Leader':
+                return
+            if self.currently_reconfiguring(ret):
+                return
+            cluster = self.cluster(ret)
+            if body['node'] in cluster:
+                return
+            cluster.append(body['node'])
+            log = ret.get('log')
+            log.append({'term': term, 'type': 'reconfig', 'cluster': cluster, 'sender': sender, 'n': body['n']})
+            ret.set('log', log)
+            self.replicate_log(to, ret)
+
+        elif type == 'RemoveNode':
+            if state != 'Leader':
+                return
+            if self.currently_reconfiguring(ret):
+                return
+            cluster = self.cluster(ret)
+            if body['node'] not in cluster:
+                return
+            cluster = [node for node in cluster if node != body['node']]
+            log = ret.get('log')
+            log.append({'term': term, 'type': 'reconfig', 'cluster': cluster, 'sender': sender, 'n': body['n']})
+            ret.set('log', log)
+            self.replicate_log(to, ret)
+
+        elif type == 'Command':
+            if state != 'Leader':
+                return
+            log = ret.get('log')
+            log.append({'term': term, 'type': 'command', 'command': body['command'], 'sender': sender, 'n': body['n']})
+            ret.set('log', log)
+            self.replicate_log(to, ret)
+            
                           
 if __name__ == '__main__':
     sh = Shim()
-    cluster = ['S1', 'S2', 'S3', 'S4', 'S5']
     cfg1 = ['S1', 'S2', 'S3', 'S4']
-    cfg2 = ['S1', 'S2', 'S3', 'S4', 'S5']
-    cfg3 = ['S2', 'S3', 'S4']
-    sh.add_node(RaftClient, 'client',
-                cfg={'cluster': cluster,
-                     'cmds': [{'type': 'Reconfig', 'body': {'cluster': cfg2}},
-                              {'type': 'Reconfig', 'body': {'cluster': cfg3}}]})
+    sh.add_node(RaftClient, 'client1',
+                cfg={'cluster': cfg1,
+                     'cmds': [{'type': 'AddNode', 'body': {'node': 'S5'}}]})
+    sh.add_node(RaftClient, 'client2',
+                cfg={'cluster': cfg1,
+                     'cmds': [{'type': 'RemoveNode', 'body': {'node': 'S1'}}]})
     for node in cfg1:
         sh.add_node(RaftServer, node, cfg={'cluster': cfg1})
     sh.add_node(RaftServer, 'S5', cfg={'cluster': {}})
