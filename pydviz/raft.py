@@ -1,3 +1,10 @@
+"""An implementation of Raft.
+
+Includes a buggy version of Raft's single-server reconfiguration algorithm, as
+described in Ongaro's thesis.
+
+"""
+
 import threading
 from shim import Node, Shim
 
