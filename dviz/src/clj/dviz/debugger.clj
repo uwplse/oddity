@@ -96,9 +96,10 @@
 (defn send-reset [dbg id log]
   (send-start dbg id)
   (doseq [msg (rest log)]
-    (let [socket (get-in (st dbg) [:sessions id :sockets (get msg "to")])]
-      (s/put! socket msg)
-      @(s/take! socket)))
+    (if (contains? msg "to")
+      (let [socket (get-in (st dbg) [:sessions id :sockets (get msg "to")])]
+        (s/put! socket msg)
+        @(s/take! socket))))
   {:ok true})
 
 (defn quit [dbg] (quit-all-sessions (:state dbg)))
