@@ -596,6 +596,14 @@
                     (do-next-event nil))}
          "Random next event"]))))
 
+(defn oldest-next-event-button []
+  (let []
+    (fn [n]
+      (if @events
+        [:button {:on-click
+                  (fn []
+                    (do-next-event {:type :oldest}))}
+         "Oldest next message"]))))
 
 (defn reset-events-button []
   (let []
@@ -866,6 +874,7 @@
      [main-window]
      [:br]
      [next-event-button]
+     [oldest-next-event-button]
      [reset-server-positions-button]
      ;[reset-events-button]
      ;[paxos-events-button]

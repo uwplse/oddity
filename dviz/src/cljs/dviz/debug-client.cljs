@@ -265,7 +265,12 @@
                                                   (get-in res [DEFAULT_ID "trace"]))
                                            (recur))
               in ([[st action]]
-                  (let [action (or action (rand-nth (:actions st)))]
+
+                  (let [action
+                        (cond
+                          (nil? action)              (rand-nth (:actions st))
+                          (= (:type action) :oldest) (first (filter (fn [a] (= (:type a) :message)) (:actions st)))
+                          :else                      action)]
                     (do
                       (swap! state-atom assoc :status :processing)
                       (swap! state-atom assoc :started true)
