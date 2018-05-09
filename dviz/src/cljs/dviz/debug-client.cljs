@@ -299,7 +299,8 @@
                               event (make-event action res)
                               state (update-state st msg event)]
                           ; TODO: get log for graphviz
-                          (.log js/console (gs/format "%s" (:log state)))
+                          ;(.log js/console (clj->js (:log state)))
+                          (.log js/console (.stringify js/JSON (clj->js (:log state))))
                           (>! out [event state])))
                       (swap! state-atom assoc :status :ready)
                       (recur)))))))))
