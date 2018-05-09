@@ -1,0 +1,44 @@
+digraph {
+  node [ shape = box
+       ; fontsize = 8
+       ];
+
+  N1_000 [shape = point, width = 0.05, height = 0.05];
+  N1_001 [shape = point, width = 0.05, height = 0.05];
+  N1_002 [shape = point, width = 0.05, height = 0.05];
+  N1_003 [shape = point, width = 0.05, height = 0.05];
+  N1_004 [shape = point, width = 0.05, height = 0.05];
+
+  N2_000 [shape = point, width = 0.05, height = 0.05];
+  N2_001 [shape = point, width = 0.05, height = 0.05];
+  N2_002 [shape = point, width = 0.05, height = 0.05];
+  N2_003 [shape = point, width = 0.05, height = 0.05];
+  N2_004 [shape = point, width = 0.05, height = 0.05];
+
+  N3_000 [shape = point, width = 0.05, height = 0.05];
+  N3_001 [shape = point, width = 0.05, height = 0.05];
+  N3_002 [shape = point, width = 0.05, height = 0.05];
+  N3_003 [shape = point, width = 0.05, height = 0.05];
+  N3_004 [shape = point, width = 0.05, height = 0.05];
+
+  N1 -> N1_000 [group = N1, style = invis];
+  N2 -> N2_000 [group = N2, style = invis];
+  N3 -> N3_000 [group = N3, style = invis];
+
+  N1_000 -> N1_001 -> N1_002 -> N1_003 -> N1_004 [dir = none];
+  N2_000 -> N2_001 -> N2_002 -> N2_003 -> N2_004 [dir = none];
+  N3_000 -> N3_001 -> N3_002 -> N3_003 -> N3_004 [dir = none];
+
+  {rank = same; N1_000 [group = N1]; N2_000 [group = N2]; N3_000 [group = N3];}
+  {rank = same; N1_001 [group = N1]; N2_001 [group = N2]; N3_001 [group = N3];}
+  {rank = same; N1_002 [group = N1]; N2_002 [group = N2]; N3_002 [group = N3];}
+  {rank = same; N1_003 [group = N1]; N2_003 [group = N2]; N3_003 [group = N3];}
+  {rank = same; N1_004 [group = N1]; N2_004 [group = N2]; N3_004 [group = N3];}
+
+  N1_000 -> N3_001 [label = "ReqVote"; weight = 0];
+  N3_001 -> N2_002 [label = "Vote"; weight = 0];
+  N3_001 -> N1_002 [label = "Vote"; weight = 0];
+  N2_002 -> N3_003 [label = "Commit"; weight = 0];
+  N3_003 -> N1_004 [label = "Commit"; weight = 0];
+  N2_003 -> N1_004 [label = "Commit"; weight = 0];
+}
