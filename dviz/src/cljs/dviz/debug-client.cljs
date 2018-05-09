@@ -298,6 +298,8 @@
                                     (write-and-read-result to-server msg from-server))
                               event (make-event action res)
                               state (update-state st msg event)]
+                          ; TODO: get log for graphviz
+                          (.log js/console (gs/format "%s" (:log state)))
                           (>! out [event state])))
                       (swap! state-atom assoc :status :ready)
                       (recur)))))))))
