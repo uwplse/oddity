@@ -301,6 +301,10 @@
                           ; TODO: get log for graphviz
                           ;(.log js/console (clj->js (:log state)))
                           (.log js/console (.stringify js/JSON (clj->js (:log state))))
+                          (let [msg (make-debugger-msg state "stvis"
+                                                       {:json-log (.stringify js/JSON (clj->js (:log state)))})
+                                stvis-path (write-and-read-result to-server msg from-server)]
+                            (.log js/console (gs/format "Path to stviz %s" (:out stviz-path))))
                           (>! out [event state])))
                       (swap! state-atom assoc :status :ready)
                       (recur)))))))))

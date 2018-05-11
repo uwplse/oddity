@@ -4,8 +4,9 @@ import json
 def main():
     # TODO check args
 
-    with open(sys.argv[1], 'r') as f:
-        events = json.loads(f.read())
+    events = json.loads(sys.stdin.read())
+    #with open(sys.argv[1], 'r') as f:
+    #    events = json.loads(f.read())
 
     nodes = set()
     for e in events:
