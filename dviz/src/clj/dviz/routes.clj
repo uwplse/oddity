@@ -28,5 +28,5 @@
    (GET "/" [] (loading-page))
    (GET "/about" [] (loading-page))
    (resources "/")
-   (files "/stviz" {:root "/tmp/stviz"})
+   (files "/stvis" {:root "/tmp/stvis"})
    (not-found "Not Found")))
