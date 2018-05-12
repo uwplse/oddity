@@ -304,8 +304,8 @@
                           (let [msg (make-debugger-msg state "stvis"
                                                        {:json-log (.stringify js/JSON (clj->js (:log state)))})
                                 stvis-path (write-and-read-result to-server msg from-server)]
-                            (.log js/console (gs/format "Path to stviz %s" (:out stviz-path)))
-                            (.open js/window (str "file:///" (:out stviz-path))))
+                            (.log js/console (gs/format "Path to stviz %s" (get stvis-path "out")))
+                            (.open js/window (str "/stvis/" (gs/trim (get stvis-path "out")))))
                           (>! out [event state])))
                       (swap! state-atom assoc :status :ready)
                       (recur)))))))))
