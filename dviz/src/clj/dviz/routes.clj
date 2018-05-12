@@ -1,6 +1,6 @@
 (ns dviz.routes
   (:require [compojure.core :refer [GET routes]]
-            [compojure.route :refer [not-found resources]]
+            [compojure.route :refer [not-found resources files]]
             [hiccup.page :refer [include-js include-css html5]]
             [config.core :refer [env]]))
 
@@ -27,6 +27,6 @@
   (routes
    (GET "/" [] (loading-page))
    (GET "/about" [] (loading-page))
-   
    (resources "/")
+   (files "/stviz" {:root "/tmp/stviz"})
    (not-found "Not Found")))
