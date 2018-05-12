@@ -9,8 +9,8 @@ while [ -L "$src" ]; do
 done
 MYDIR="$(cd -P "$(dirname "$src")" && pwd)"
 
-N="$(printf "%03d" $(expr $RANDOM \% 1000))"
-P="$MYDIR/stvis-$N"
+N="stvis-$(printf "%03d" $(expr $RANDOM \% 1000))"
+P="/tmp/stvis/$N"
 
 cat - \
   | tee "$P.json" \
@@ -19,4 +19,4 @@ cat - \
   | dot -Tpng \
   > "$P.png"
 
-echo "$P.png"
+echo "$N.png"

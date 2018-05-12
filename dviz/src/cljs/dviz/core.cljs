@@ -605,6 +605,15 @@
                     (do-next-event {:type :oldest}))}
          "Oldest next message"]))))
 
+;;(defn stvis-button []
+;;  (let []
+;;    (fn [n]
+;;      (if @events
+;;        [:button {:on-click
+;;                  (fn []
+;;                    (do-next-event {:type :oldest}))}
+;;         "Oldest next message"]))))
+
 (defn reset-events-button []
   (let []
     (fn [n] 
