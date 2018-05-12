@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 
 # determine physical directory of this script
-mkdir -p /tmp/stvis
-
 src="${BASH_SOURCE[0]}"
 while [ -L "$src" ]; do
   dir="$(cd -P "$(dirname "$src")" && pwd)"
@@ -11,8 +9,10 @@ while [ -L "$src" ]; do
 done
 MYDIR="$(cd -P "$(dirname "$src")" && pwd)"
 
-N="stvis-$(printf "%03d" $(expr $RANDOM \% 1000))"
-P="/tmp/stvis/$N"
+# set up space for outputs
+mkdir -p /tmp/stviz
+N="stviz-$(printf "%03d" $(expr $RANDOM \% 1000))"
+P="/tmp/stviz/$N"
 
 cat - \
   | tee "$P.json" \

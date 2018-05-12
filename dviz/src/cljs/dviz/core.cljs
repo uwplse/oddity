@@ -596,23 +596,23 @@
                     (do-next-event nil))}
          "Random next event"]))))
 
-(defn oldest-next-event-button []
+(defn deliver-oldest-msg-button []
   (let []
     (fn [n]
       (if @events
         [:button {:on-click
                   (fn []
                     (do-next-event {:type :oldest}))}
-         "Oldest next message"]))))
+         "Deliver oldest message"]))))
 
-;;(defn stvis-button []
-;;  (let []
-;;    (fn [n]
-;;      (if @events
-;;        [:button {:on-click
-;;                  (fn []
-;;                    (do-next-event {:type :oldest}))}
-;;         "Oldest next message"]))))
+(defn stviz-button []
+  (let []
+    (fn [n]
+      (if @events
+        [:button {:on-click
+                  (fn []
+                    (do-next-event {:type :stviz}))}
+         "Space-time diagram"]))))
 
 (defn reset-events-button []
   (let []
@@ -883,7 +883,8 @@
      [main-window]
      [:br]
      [next-event-button]
-     [oldest-next-event-button]
+     [deliver-oldest-msg-button]
+     [stviz-button]
      [reset-server-positions-button]
      ;[reset-events-button]
      ;[paxos-events-button]

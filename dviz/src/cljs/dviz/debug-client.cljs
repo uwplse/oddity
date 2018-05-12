@@ -292,20 +292,22 @@
                                   (recur (rest remaining) state))))))
                         (and (= (:type action) :reset) (get st :remote-id))
                         (>! out [nil st])
+                        (= (:type action) :stviz)
+                        (do
+                          ; (.log js/console (.stringify js/JSON (clj->js (:log state))))
+                          (.log js/console (gs/format "Shelling out to get space-time diagram..."))
+                          (let [msg (make-debugger-msg st "stviz"
+                                                       {:json-log (.stringify js/JSON (clj->js (:log st)))})
+                                rsp (write-and-read-result to-server msg from-server)
+                                stp (gs/trim (get rsp "out"))]
+                            (.log js/console (gs/format "Path to space-time diagram: %s" stp))
+                            (.open js/window (str "/stviz/" stp))))
                         :else
                         (let [msg (assoc (make-msg st action) :state-id (:remote-id st))
                               res (when (:msgtype msg)
                                     (write-and-read-result to-server msg from-server))
                               event (make-event action res)
                               state (update-state st msg event)]
-                          ; TODO: get log for graphviz
-                          ;(.log js/console (clj->js (:log state)))
-                          (.log js/console (.stringify js/JSON (clj->js (:log state))))
-                          (let [msg (make-debugger-msg state "stvis"
-                                                       {:json-log (.stringify js/JSON (clj->js (:log state)))})
-                                stvis-path (write-and-read-result to-server msg from-server)]
-                            (.log js/console (gs/format "Path to stviz %s" (get stvis-path "out")))
-                            (.open js/window (str "/stvis/" (gs/trim (get stvis-path "out")))))
                           (>! out [event state])))
                       (swap! state-atom assoc :status :ready)
                       (recur)))))))))
