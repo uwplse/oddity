@@ -28,10 +28,15 @@ def main():
 
     print('''
 digraph {
-  node
-    [ shape = box
-    ; fontsize = 8
-    ];
+  node  [ shape    = box
+        ; fontname = "helvetica bold"
+        ; fontsize = "18pt"
+        ];
+  edge  [ color    = gray41
+        ; penwidth = 0.75
+        ; fontname = "helvetica bold"
+        ; fontsize = "18pt"
+        ];
 ''')
 
     for n in nodes:
@@ -39,9 +44,9 @@ digraph {
         print(fmt % (n, n, 0, n))
         for i in range(nlayers):
             if i > 0:
-                fmt = '%s_%04d -> %s_%04d [dir = none, weight = 1000];'
+                fmt = '%s_%04d -> %s_%04d [dir = none, weight = 1000, minlen = 3];'
                 print(fmt % (n, i - 1, n, i))
-            fmt = '%s_%04d [shape = point, width = 0.05, height = 0.05];'
+            fmt = '%s_%04d [shape = point, width = 0, height = 0];'
             print(fmt % (n, i))
         print('')
     print('')
@@ -54,8 +59,14 @@ digraph {
         print('}\n')
     print('')
 
+    print('''
+  edge  [ color    = black
+        ; penwidth = 1.75
+        ];
+''')
+
     for i in range(len(msgs)):
-        fmt = '%s_%04d -> %s_%04d [label = "%s", ' \
+        fmt = '%s_%04d -> %s_%04d [xlabel = "%s", ' \
             + 'weight = 0, constraint = false];'
         print(fmt % ( msgs[i]['from'], i
                     , msgs[i]['to'], i + 1
