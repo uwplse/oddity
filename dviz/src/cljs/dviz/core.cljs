@@ -200,10 +200,10 @@
 (defn server-color [state id]
   (let [nservers (count (:servers state))
         index (.indexOf (:servers state) id)
-        colors (if (< 8 nservers)
+        colors (if (< nservers (count server-colors))
                  (nth server-colors nservers)
                  cb/Dark2-8)]
-    (nth colors index)))
+    (nth colors (mod index (count colors)))))
 
 (def transition-group (reagent/adapt-react-class js/ReactTransitionGroup.TransitionGroup))
 (def json-tree (aget js/window "deps" "react-json-tree" "default"))
