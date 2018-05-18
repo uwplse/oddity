@@ -16,6 +16,8 @@ P="/tmp/stviz/$N"
 
 cat - \
   | tee "$P.json" \
+  | python -m json.tool \
+  | tee "$P-pretty.json" \
   | python "$MYDIR/log2dot.py" \
   | tee "$P.dot" \
   | dot -Tpng \

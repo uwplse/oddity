@@ -12,7 +12,6 @@
             [ring.middleware.params :as params]
             [com.stuartsierra.component :as component]
             [clojure.java.shell :refer [sh]]))
-;(use '[clojure.java.shell :only [sh]])
 
 (def DEFAULT_ID "1")
 
