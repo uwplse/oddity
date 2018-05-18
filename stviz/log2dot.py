@@ -2,33 +2,39 @@ import sys
 import json
 
 def main():
-    events = json.loads(sys.stdin.read())
+    trace = json.loads(sys.stdin.read())
 
     nodes = set()
-    for e in events:
+    for e in trace:
         try:
-            nodes.add(e['from'])
             nodes.add(e['to'])
+            nodes.add(e['from'])
         except:
             pass
 
-    msgs = []
-    for e in events:
+    events = []
+    for e in trace:
         try:
             if e['msgtype'] == 'msg':
-                msgs.append({ 'from': e['from']
-                            , 'to': e['to']
-                            , 'lbl': e['type']
-                            })
+                events.append({ 'typ'  : 'msg'
+                              , 'from' : e['from']
+                              , 'to'   : e['to']
+                              , 'lbl'  : e['type']
+                              })
+            if e['msgtype'] == 'timeout':
+                events.append({ 'typ'  : 'tmout'
+                              , 'to'   : e['to']
+                              , 'lbl'  : e['type']
+                              })
         except:
             pass
 
     # need a final layer for last message to arrive in
-    nlayers = len(msgs) + 1
+    nlayers = len(events) + 1
 
     print('''
 digraph {
-  node  [ shape    = box
+  node  [ shape    = none
         ; fontname = "helvetica bold"
         ; fontsize = "18pt"
         ];
@@ -44,9 +50,13 @@ digraph {
         print(fmt % (n, n, 0, n))
         for i in range(nlayers):
             if i > 0:
-                fmt = '%s_%04d -> %s_%04d [dir = none, weight = 1000, minlen = 3];'
+                fmt = '%s_%04d -> %s_%04d_mid [dir = none, weight = 1000, minlen = 1.5];'
+                print(fmt % (n, i - 1, n, i - 1))
+                fmt = '%s_%04d_mid -> %s_%04d [dir = none, weight = 1000, minlen = 1.5];'
                 print(fmt % (n, i - 1, n, i))
             fmt = '%s_%04d [shape = point, width = 0, height = 0];'
+            print(fmt % (n, i))
+            fmt = '%s_%04d_mid [shape = point, width = 0, height = 0];'
             print(fmt % (n, i))
         print('')
     print('')
@@ -65,13 +75,22 @@ digraph {
         ];
 ''')
 
-    for i in range(len(msgs)):
-        fmt = '%s_%04d -> %s_%04d [xlabel = "%s", ' \
-            + 'weight = 0, constraint = false];'
-        print(fmt % ( msgs[i]['from'], i
-                    , msgs[i]['to'], i + 1
-                    , msgs[i]['lbl']
-                    ))
+    for i in range(len(events)):
+        e = events[i]
+        if e['typ'] == 'msg':
+            fmt = '%s_%04d -> %s_%04d [xlabel = "%s", ' \
+                + 'weight = 0, constraint = false];'
+            print(fmt % ( e['from'], i
+                        , e['to'], i + 1
+                        , e['lbl']
+                        ))
+        elif e['typ'] == 'tmout':
+            fmt = '%s_%04d_mid [shape = box; label = "%s"];'
+            print(fmt % ( e['to'], i
+                        , e['lbl']
+                        ))
+        else:
+            raise Exception('invalid event type')
     print('')
 
     print('}')

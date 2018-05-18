@@ -21,6 +21,6 @@ cat - \
   | python "$MYDIR/log2dot.py" \
   | tee "$P.dot" \
   | dot -Tpng \
-  > "$P.png"
+  > "$P.png" 2> "$P.stderr"
 
 echo "$N.png"
