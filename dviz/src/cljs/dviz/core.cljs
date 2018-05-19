@@ -605,13 +605,23 @@
                     (do-next-event {:type :oldest}))}
          "Deliver oldest message"]))))
 
+(defn stviz-button-old []
+  (let []
+    (fn [n]
+      (if @events
+        [:button {:on-click
+                  (fn []
+                    (do-next-event {:type :stviz-old}))}
+         "Old space-time diagram"]))))
+
 (defn stviz-button []
   (let []
     (fn [n]
       (if @events
         [:button {:on-click
                   (fn []
-                    (do-next-event {:type :stviz}))}
+                    (do-next-event {:type :stviz :event-history @event-history}))}
+         ; (trees/children (trees/get-path @event-history @selected-event-path))
          "Space-time diagram"]))))
 
 (defn reset-events-button []
@@ -884,6 +894,7 @@
      [:br]
      [next-event-button]
      [deliver-oldest-msg-button]
+     [stviz-button-old]
      [stviz-button]
      [reset-server-positions-button]
      ;[reset-events-button]

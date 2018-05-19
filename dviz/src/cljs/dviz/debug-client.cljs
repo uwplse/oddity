@@ -292,7 +292,7 @@
                                   (recur (rest remaining) state))))))
                         (and (= (:type action) :reset) (get st :remote-id))
                         (>! out [nil st])
-                        (= (:type action) :stviz)
+                        (= (:type action) :stviz-old)
                         (do
                           ; (.log js/console (.stringify js/JSON (clj->js (:log state))))
                           (.log js/console (gs/format "Shelling out to get space-time diagram..."))
@@ -302,6 +302,9 @@
                                 stp (gs/trim (get rsp "out"))]
                             (.log js/console (gs/format "Path to space-time diagram: %s" stp))
                             (.open js/window (str "/stviz/" stp))))
+                        (= (:type action) :stviz)
+                        (do
+                          (.log js/console (gs/format "%s" (:event-history action))))
                         :else
                         (let [msg (assoc (make-msg st action) :state-id (:remote-id st))
                               res (when (:msgtype msg)
