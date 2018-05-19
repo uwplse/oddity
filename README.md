@@ -1,7 +1,9 @@
+
 # Setup
 
 ```
 $ brew install leiningen node
+$ pip install edn_format
 ```
 
 # Build
