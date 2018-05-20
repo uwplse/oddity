@@ -620,8 +620,9 @@
       (if @events
         [:button {:on-click
                   (fn []
-                    (do-next-event {:type :stviz :event-history @event-history}))}
-         ; (trees/children (trees/get-path @event-history @selected-event-path))
+                    ; (do-next-event {:type :stviz :event-history @event-history}))}
+                    (do-next-event {:type :stviz :event-history (trees/get-path @event-history @selected-event-path)}))}
+                    ; (trees/children (trees/get-path @event-history @selected-event-path))
          "Space-time diagram"]))))
 
 (defn reset-events-button []

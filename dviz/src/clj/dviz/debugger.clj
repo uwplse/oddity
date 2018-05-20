@@ -113,8 +113,10 @@
                           [id {:servers (keys (get s :sockets)) :trace (get s :trace)}]))
                (= "start" (get msg "msgtype")) (send-start dbg (get msg "id"))
                (= "reset" (get msg "msgtype")) (send-reset dbg (get msg "id") (get msg "log"))
-               (= "stviz" (get msg "msgtype"))
+               (= "stviz-old" (get msg "msgtype"))
                (sh "/Users/ztatlock/research/dviz/stviz/log2dot.sh" :in (get msg "json-log"))
+               (= "stviz" (get msg "msgtype"))
+               (sh "/Users/ztatlock/research/dviz/stviz/events2dot.sh" :in (get msg "edn-events"))
                :else (send-message dbg msg))]
     (json/write-str resp)))
 

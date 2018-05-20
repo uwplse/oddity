@@ -6,6 +6,7 @@
             [goog.string.format]
             [haslett.client :as ws]
             [haslett.format :as ws-fmt]
+            [cljs.pprint :refer [pprint]]
             [cljs.core.async :refer [put! take! chan <! >! timeout close!]]))
 
   (def DEFAULT_ID "1")
@@ -296,7 +297,7 @@
                         (do
                           ; (.log js/console (.stringify js/JSON (clj->js (:log state))))
                           (.log js/console (gs/format "Shelling out to get space-time diagram..."))
-                          (let [msg (make-debugger-msg st "stviz"
+                          (let [msg (make-debugger-msg st "stviz-old"
                                                        {:json-log (.stringify js/JSON (clj->js (:log st)))})
                                 rsp (write-and-read-result to-server msg from-server)
                                 stp (gs/trim (get rsp "out"))]
@@ -304,7 +305,15 @@
                             (.open js/window (str "/stviz/" stp))))
                         (= (:type action) :stviz)
                         (do
-                          (.log js/console (gs/format "%s" (:event-history action))))
+                          ; (.log js/console (gs/format "%s" (:event-history action))))
+                          (.log js/console (gs/format "Shelling out to get space-time diagram..."))
+                          (let [msg (make-debugger-msg st "stviz"
+                                                       {:edn-events (with-out-str (pprint (:event-history action)))})
+                                                       ; {:edn-events (gs/format "%s" (:event-history action))})
+                                rsp (write-and-read-result to-server msg from-server)
+                                stp (gs/trim (get rsp "out"))]
+                            (.log js/console (gs/format "Path to space-time diagram: %s" stp))
+                            (.open js/window (str "/stviz/" stp))))
                         :else
                         (let [msg (assoc (make-msg st action) :state-id (:remote-id st))
                               res (when (:msgtype msg)
