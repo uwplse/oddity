@@ -1,14 +1,14 @@
+
+# modify to Java 8 JDK path if necessary
+#export JAVA_HOME = /Library/Java/JavaVirtualMachines/jdk1.8.0_172.jdk/Contents/Home
+#export PATH := $(JAVA_HOME)/bin:$(PATH)
+
 .PHONY: deploy
 deploy:
 	npm install
 	npm run build
 	lein uberjar
 
-## deploy:
-## 	wget https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein
-## 	chmod +x ./lein
-## 	./lein
-## 	./lein minify-assets
-## 	./lein cljsbuild once
-## 	./lein deploy
-## 	cp -r resources/public/* target/deploy/
+.PHONY: clean
+clean:
+	lein clean
