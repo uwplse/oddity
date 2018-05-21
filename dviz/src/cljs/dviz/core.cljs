@@ -162,7 +162,7 @@
         ;(prn "setting timeout")
         (doseq [t ts] (set-timeout t)))
       ;; add event to history
-      (let [new-event-for-history {:state @state :events evs :message-extra-add-drop-data @message-extra-add-drop-data}]
+      (let [new-event-for-history {:state @state :events evs :message-extra-add-drop-data @message-extra-add-drop-data :event ev}]
         (let [next-events (map trees/root (trees/children (trees/get-path @event-history @selected-event-path)))]
           (if-let [next-event-index (index-of next-events new-event-for-history)]
             (swap! selected-event-path conj next-event-index)
