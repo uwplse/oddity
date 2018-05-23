@@ -44,7 +44,7 @@
         (make-debugger-msg state "timeout" {:to to :type type :body body})))
     :message
     (if-let [remote-id (get (:message action) :remote-id)]
-      (make-debugger-msg state "msg" {:msg-id remote-id :to (:to (:message action))}) 
+      (make-debugger-msg state "msg" {:msg-id remote-id :to (:to (:message action))})
       (let [{:keys [from to type body]} (:message action)]
         (make-debugger-msg state "msg" {:to to :from from :type type :body body})))
     :reset
@@ -306,9 +306,11 @@
                         (= (:type action) :stviz)
                         (do
                           ; (.log js/console (gs/format "%s" (:event-history action))))
+                          (.log js/console (with-out-str (pprint (:stviz-event-log action))))
                           (.log js/console (gs/format "Shelling out to get space-time diagram..."))
                           (let [msg (make-debugger-msg st "stviz"
-                                                       {:edn-events (with-out-str (pprint (:event-history action)))})
+                                                       {:edn-events "DUMMY"})
+                                                        ;(with-out-str (pprint (:event-history action)))})
                                                        ; {:edn-events (gs/format "%s" (:event-history action))})
                                 rsp (write-and-read-result to-server msg from-server)
                                 stp (gs/trim (get rsp "out"))]

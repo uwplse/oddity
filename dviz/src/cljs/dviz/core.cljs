@@ -617,6 +617,13 @@
                     (do-next-event {:type :stviz-old}))}
          "Old space-time diagram"]))))
 
+(defn stviz-aux [e0]
+  (let [get-mkeys (fn [x] (select-keys x [:to :from :type]))
+        e1 (:event e0)
+        e2 (select-keys e1 [:send-messages :deliver-message])
+        e3 (update e2 :send-messages (fn [x] (map get-mkeys x)))]
+    e3))
+
 (defn stviz-button []
   (let []
     (fn [n]
@@ -624,8 +631,10 @@
         [:button {:on-click
                   (fn []
                     ; (do-next-event {:type :stviz :event-history @event-history}))}
-                    (do-next-event {:type :stviz :event-history (trees/get-path @event-history @selected-event-path)}))}
-                    ; (trees/children (trees/get-path @event-history @selected-event-path))
+                    (let [p (trees/get-whole-path @event-history @selected-event-path)
+                          l (map stviz-aux p)]
+                      (do-next-event {:type :stviz
+                                      :stviz-event-log l})))}
          "Space-time diagram"]))))
 
 (defn reset-events-button []
