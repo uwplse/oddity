@@ -39,13 +39,13 @@
     :timeout
     (if-let [remote-id (get (:timeout action) :remote-id)]
       (make-debugger-msg state "timeout" {:timeout-id remote-id :to (:to (:timeout action))})
-      (let [{:keys [to type body]} (:timeout action)]
-        (make-debugger-msg state "timeout" {:to to :type type :body body})))
+      (let [{:keys [to type body raw]} (:timeout action)]
+        (make-debugger-msg state "timeout" {:to to :type type :body body :raw raw})))
     :message
     (if-let [remote-id (get (:message action) :remote-id)]
       (make-debugger-msg state "msg" {:msg-id remote-id :to (:to (:message action))}) 
-      (let [{:keys [from to type body]} (:message action)]
-        (make-debugger-msg state "msg" {:to to :from from :type type :body body})))
+      (let [{:keys [from to type body raw]} (:message action)]
+        (make-debugger-msg state "msg" {:to to :from from :type type :body body :raw raw})))
     :reset
     (make-debugger-msg state "reset" {:log (:log state)})
     :duplicate
@@ -66,7 +66,8 @@
                            :let [timeout {:remote-id (get pre-timeout "@id")
                                           :to (get pre-timeout "to")
                                           :type (get pre-timeout "type")
-                                          :body (get pre-timeout "body")}]]
+                                          :body (get pre-timeout "body")
+                                          :raw (get pre-timeout "raw")}]]
                        (assoc timeout :actions [["Fire" {:type :timeout :timeout timeout}]]))
         clear-timeouts (for [{to "to" type "type" body "body"} (get response "cleared-timeouts")
                              :when (= to server-id)]
@@ -77,7 +78,8 @@
                                            :from server-id
                                            :to (get pre-message "to")
                                            :type (get pre-message "type")
-                                           :body (get pre-message "body")}]]
+                                           :body (get pre-message "body")
+                                           :raw (get pre-message "raw")}]]
                         (assoc message :actions [["Deliver" {:type :message :message message}]
                                                  ["Duplicate" {:type :duplicate :message message}]
                                                  ["Drop" {:type :drop :message message}]]))]
@@ -128,22 +130,22 @@
     (let [{server-id :to} (:timeout action)]
       (process-single-response server-id res))
     :message
-    (let [{:keys [from to type body]} (:message action)
+    (let [{:keys [from to type body raw]} (:message action)
           event (process-single-response to res)
-          deliver-message {:from from :to to :type type :body body}]
+          deliver-message {:from from :to to :type type :body body :raw raw}]
       (assoc event :deliver-message deliver-message))
     :reset nil
     :duplicate
-    (let [{:keys [from to type body remote-id]} (:message action)
-          message-without-actions {:from from :to to :type type :body body :remote-id remote-id}
+    (let [{:keys [from to type body raw remote-id]} (:message action)
+          message-without-actions {:from from :to to :type type :body body :raw raw :remote-id remote-id}
           message (assoc message-without-actions
                          :actions [["Deliver" {:type :message :message message-without-actions}]
                                    ["Duplicate" {:type :duplicate :message message-without-actions}]
                                    ["Drop" {:type :drop :message message-without-actions}]])]
       {:duplicate-message message :debug "duplicate"})
     :drop
-    (let [{:keys [from to type body remote-id]} (:message action)
-          message-without-actions {:from from :to to :type type :body body :remote-id remote-id}]
+    (let [{:keys [from to type body raw remote-id]} (:message action)
+          message-without-actions {:from from :to to :type type :body body :raw raw :remote-id remote-id}]
       {:drop-message message-without-actions :debug "drop"})
 
     ))
@@ -155,6 +157,7 @@
                             :to (get timeout "to")
                             :type (get timeout "type")
                             :body (get timeout "body")
+                            :raw (get timeout "raw")
                             }}
           res trace-entry]
       [action res]) ; handle timeout
@@ -165,6 +168,7 @@
                               :from (get message "from")
                               :type (get message "type")
                               :body (get message "body")
+                              :raw (get message "raw")
                               }}
             res trace-entry]
         [action res])
@@ -175,6 +179,7 @@
                               :from (get message "from")
                               :type (get message "type")
                               :body (get message "body")
+                              :raw (get message "raw")
                               }}
             res trace-entry]
           [action res])
@@ -185,6 +190,7 @@
                                   :from (get message "from")
                                   :type (get message "type")
                                   :body (get message "body")
+                                  :raw (get message "raw")
                                   }}
             res trace-entry]
           [action res])
@@ -195,10 +201,10 @@
 
 (defn canonicalize-message [m]
   (if (:from m)
-    (let [{:keys [from to type body]} m]
-      {:from from :to to :type type :body body})
-    (let [{from "from" to "to" type "type" body "body"} m]
-      {:from from :to to :type type :body body})))
+    (let [{:keys [from to type body raw]} m]
+      {:from from :to to :type type :body body :raw raw})
+    (let [{from "from" to "to" type "type" body "body" raw "raw"} m]
+      {:from from :to to :type type :body body :raw raw})))
 
 (defn dec-at-key [k m]
   (if k
