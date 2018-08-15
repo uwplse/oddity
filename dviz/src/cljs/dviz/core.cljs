@@ -41,6 +41,12 @@
   (if DEBUG
     (.log js/console (gs/format s rest))))
 
+(defn get-config [k]
+  (-> (.getElementById js/document "config")
+      (.getAttribute "data-config")
+      (cljs.reader/read-string)
+      (get k)))
+
 ;; Views
 ;; -------------------------
 
@@ -60,7 +66,7 @@
 (defonce main-window-ystart (reagent/atom 0))
 
 (defonce log-state (reagent/atom nil))
-(defonce logger (log/log-socket log-state))
+(defonce logger (if (get-config :enable-logging) (log/log-socket log-state)))
 
 (defn non-propagating-event-handler [f]
   (fn [e] (f e) (.preventDefault e) (.stopPropagation e)))
@@ -737,6 +743,13 @@
   (let [json (.stringify js/JSON (clj->js {:trace trace :servers servers}))]
     (download "trace.json" json "application/json")))
 
+(defn switch-to-trace [trace servers]
+  (reset! event-history nil)
+  (reset! selected-event-path [])
+  (let [tr (make-trace trace servers)]
+    (reset! events (event-source/StaticEventSource. tr))
+    (do-next-event nil)))
+
 (defn trace-display []
   (let [traces (reagent/atom @traces-local)
         fetch-traces (reset! traces @traces-local)
@@ -754,7 +767,7 @@
             (for [{:keys [name trace id servers]} @traces]
               ^{:key name} [:li
                             [:a {:href "#"
-                                 :on-click #(reset! events (event-source/StaticEventSource. (make-trace trace servers)))}
+                                 :on-click #(switch-to-trace trace servers)}
                              name]
                             [:span " "]
                             [:a {:href "#" :on-click #(download-trace trace servers)} "(download)"]]))]
@@ -870,9 +883,9 @@
      ;[reset-events-button]
      ;[paxos-events-button]
      [history-view]
-     [log-status]
-     ;[trace-display]
-     [debug-display]
+     (if (get-config :enable-logging) [log-status])
+     (if (get-config :enable-traces) [trace-display])
+     (if (get-config :enable-debugger) [debug-display])
      [inspector]]))
 
 ;; -------------------------

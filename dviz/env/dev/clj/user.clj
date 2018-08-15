@@ -22,8 +22,11 @@
      (prn debug)
      (handler request respond raise))))
 
+(def dev-config {:usage-log-url "http://localhost:6000/log"
+                 :enable-logging false :enable-debugger false :enable-traces true})
+
 (defn dev-system []
-  (assoc (app-system (assoc (default-config) :usage-log-url "http://localhost:6000/log"))
+  (assoc (app-system (merge (default-config) dev-config))
          :middleware (new-middleware
                       {:middleware (into [[wrap-file "target/dev/public"]]
                                          (middleware))})

@@ -16,7 +16,7 @@
   (:gen-class))
 
 (defn logger-system [config]
-  (if (:usage-log-url config)
+  (if (:enable-logging config)
     {:logger-db (new-database (:logger-db-spec config) init-logger-db)
      :logger (-> (logger (:logger-ws-port config))
                  (component/using {:db :logger-db}))
@@ -24,18 +24,23 @@
                      (component/using {:db :logger-db}))}
     {}))
 
+(defn debugger-system [config]
+  (if (:enable-debugger config)
+    {:debugger (debugger (:debugger-port config))
+     :debugger-websocket-server (-> (debugger-websocket-server (:debugger-ws-port config))
+                                    (component/using [:debugger]))}
+    {}))
+
 (defn app-system [config]
   (merge 
    (component/system-map
-    :routes (new-endpoint app-routes)
+    :routes (new-endpoint (app-routes config))
     :middleware (new-middleware {:middleware (middleware)})
     :handler (-> (new-handler)
                  (component/using [:routes :middleware]))
-    :debugger (debugger (:debugger-port config))
-    :debugger-websocket-server (-> (debugger-websocket-server (:debugger-ws-port config))
-                                   (component/using [:debugger]))
     :http (-> (new-web-server (:port config))
               (component/using [:handler])))
+   (debugger-system config)
    (logger-system config)))
 
 (def opts [[nil "--usage-log-url URL" "URL to send usage logs"]])
@@ -45,12 +50,22 @@
        (string/join \newline errors)))
 
 (defn config-from-args [args]
-  (let [parsed-args (parse-opts args opts)]
-    {:config (:options parsed-args)
+  (merge (default-config)
+        (when-let [usage-log-url (:usage-log-url args)]
+          {:enable-logging true
+           :usage-log-url usage-log-url})
+        (when (:trace-mode args)
+          {:enable-logging false
+           :enable-debugger false
+           :enable-traces true})))
+
+(defn config-from-cli [cli]
+  (let [parsed-args (parse-opts cli opts)]
+    {:config (config-from-args (:options parsed-args))
      :errors (:errors parsed-args)}))
 
 (defn -main [& args]
-  (let [cli-config (config-from-args args)]
+  (let [cli-config (config-from-cli args)]
     (if (nil? (:errors cli-config))
-      (component/start (app-system (merge (default-config) (:config cli-config))))
+      (component/start (app-system (:config cli-config)))
       (println (error-msg (:errors cli-config))))))

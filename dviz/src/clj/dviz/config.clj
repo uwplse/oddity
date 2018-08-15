@@ -9,4 +9,10 @@
    :logger-db-spec {:classname   "org.sqlite.JDBC"
                     :subprotocol "sqlite"
                     :subname     ".usage-database.db"
-                    }})
+                    }
+   :enable-logging false
+   :enable-debugger true
+   :enable-traces false})
+
+(defn client-config [config]
+  (select-keys config [:enable-logging :enable-debugger :enable-traces]))
