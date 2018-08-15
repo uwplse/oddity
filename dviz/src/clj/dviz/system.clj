@@ -43,8 +43,8 @@
    (debugger-system config)
    (logger-system config)))
 
-(def opts [[nil "--usage-log-url URL" "URL to send usage logs"
-            nil "--trace-mode" "Start in trace exploration mode"]])
+(def opts [[nil "--usage-log-url URL" "URL to send usage logs"]
+           [nil "--trace-mode" "Start in trace exploration mode"]])
 
 (defn error-msg [errors]
   (str "Error in command-line args:\n\n"
