@@ -771,7 +771,13 @@
                                  :on-click #(switch-to-trace trace servers)}
                              name]
                             [:span " "]
-                            [:a {:href "#" :on-click #(download-trace trace servers)} "(download)"]]))]
+                            [:a {:href "#" :on-click #(download-trace trace servers)} "(download)"]
+                            [:span " "]
+                            [:a {:href "#" :on-click
+                                 (fn [] (swap! traces
+                                               #(vec (remove-one (partial fields-match
+                                                                          [:id] {:id id})
+                                                                 %))))} "(delete)"]]))]
           [trace-upload traces-local]])])))
 
 (defonce debug-display-state (reagent/atom nil))
