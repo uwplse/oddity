@@ -152,10 +152,11 @@
       ;; process state dumps
       (when-let [state-dumps (:states ev)]
         (doseq [[id new-state] state-dumps]
-          (.log js/console (gs/format "Updating server %s to state %s" id new-state))
-          (let [updates (differing-paths (get-in @state [:server-state id]) new-state)]
-            (doseq [[path val] updates] (update-server-state id path val))
-            (update-server-log id updates))))
+          (let [id (name id)]
+            (.log js/console (gs/format "Updating server %s to state %s" id new-state))
+            (let [updates (differing-paths (get-in @state [:server-state id]) new-state)]
+              (doseq [[path val] updates] (update-server-state id path val))
+              (update-server-log id updates)))))
       ;; process send messages
       (when-let [ms (:send-messages ev)]
         (doseq [m ms] (send-message m)))
