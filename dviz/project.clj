@@ -108,7 +108,6 @@
                                   [ring/ring-devel "1.6.1"]
                                   [prone "1.1.4"]
                                   [figwheel-sidecar "0.5.15"]
-                                  [org.clojure/tools.nrepl "0.2.13"]
                                   [com.cemerick/piggieback "0.2.2"]
                                   [pjstadig/humane-test-output "0.8.2"]
                                   [org.clojure/test.check "0.9.0"]
@@ -116,7 +115,6 @@
 
                    :source-paths ["env/dev/clj"]
                    :plugins [[lein-figwheel "0.5.15"]
-                             [cider/cider-nrepl "0.17.0-SNAPSHOT"]
                              [org.clojure/tools.namespace "0.3.0-alpha4"
                               :exclusions [org.clojure/tools.reader]]
                              [refactor-nrepl "2.4.0-SNAPSHOT"
