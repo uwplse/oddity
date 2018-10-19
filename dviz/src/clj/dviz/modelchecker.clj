@@ -24,8 +24,8 @@
     (= a (take (count a) b))
     false))
 
-(defn add-actions-to-worklist [state current worklist]
-  (concat (map #(conj current %) (actions state)) worklist))
+(defn new-actions [state current]
+  (map #(conj current %) (actions state)))
 
 (defn dfs
   ([state pred max-depth] (dfs state pred max-depth 3))
@@ -50,15 +50,16 @@
            (let [state (reduce run! state (drop (count current) next))]
              (if (matches? state pred)
                {:result :found :trace next}
-               (if (< (count next) depth)
-                 (recur state
-                        depth
-                        (add-actions-to-worklist state next (rest worklist))
-                        next-worklist
-                        next)
-                 (recur state
-                        depth
-                        (rest worklist)
-                        (add-actions-to-worklist state next next-worklist)
-                        next))))
+               (let [acs (new-actions state next)]
+                 (if (< (count next) depth)
+                   (recur state
+                          depth
+                          (concat acs (rest worklist))
+                          next-worklist
+                          next)
+                   (recur state
+                          depth
+                          (rest worklist)
+                          (concat next-worklist acs)
+                          next)))))
            (recur (restart! state) depth worklist next-worklist [])))))))
