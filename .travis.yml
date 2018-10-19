@@ -1,9 +1,10 @@
 language: clojure
 before_install: cd dviz
 script:
-  npm install &&
-  npm run build &&
-  lein uberjar
+  - npm install
+  - npm run build
+  - lein test
+  - lein uberjar
 deploy:
   provider: releases
   skip_cleanup: true
