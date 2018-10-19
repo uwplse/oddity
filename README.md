@@ -22,7 +22,7 @@ cd examples/python
 python2.7 raft.py
 ```
 
-Navigate to [http://localhost:3000] and you can start playing with Raft!
+Navigate to http://localhost:3000 and you can start playing with Raft!
 
 ## Developing Oddity
 
@@ -65,7 +65,7 @@ typing
 (go)
 ```
 
-You can then visit [http://localhost:3000].
+You can then visit http://localhost:3000 .
 
 ### Emacs + CIDER
 
