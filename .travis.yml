@@ -4,10 +4,11 @@ script:
   - npm install
   - npm run build
   - lein test
-  - lein uberjar
 deploy:
   provider: releases
   skip_cleanup: true
+  script:
+    - lein uberjar
   api_key:
     secure: EOGO3WbTpVxsDNGB2w5IjIDfW8Afx6E14/gjXb3YrKLJp0PDUe5UWwt1djrJzSjgohZAoA7rLFHMcQvvgEM9z5R20pWICX4oE/IWAwUmZ1PvlNt2bGbDHlWBo5GHyU6JbqWwC0w6a093ZorXFIOVeUfH5vnHYB7PTajzK151hSoQyOwxqhn2JcP9NL0/GfxQkkuNz5GynPDVzppWi5ndkMe/G4o8jOmBy+39ORJ8vK7yp5OniOwwGkPXLBmO7Dtv3bPl3pvImqAxts00jwi3dKwoya+Sn4Xn2ag3zdC5KhXyX8wW8rC2lBqQ/1C6oirk/VyS4Y6vPG8NneQR/c5dOSyqiVkQveyS7R9rVPHeUJb7p2MogbooZk+FjDaONhLsl7tHfrBa9UwDDysxpiGsWdz7BpKQGrTMJIWnG/lcy7AxPHR11KBgoIEXhW+I7eyek4C5h0g+Co4Ma/5ONxLXhwtrhhevvzuLf863FVRc/sDi+dC9C2KKEETWANbqX9AKrfokkg51y3z+w8X9rp0xQucXktZvspcc05U1uHEeLCBlAw0wlHFHdjW3DvclnKfY4x4MzgtNvwslRsIKx8fpY8cO0TDrU9m0TzGKoLMiFrEM+hoBaZwO5XdaXIokdusv/PSK7FbKV66JMvPsruVon8uN3+/WyJgZS7w+bX1nkYs=
   file: target/dviz.jar
