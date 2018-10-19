@@ -8,17 +8,6 @@
   (run! [this action] "Run action")
   (matches? [this pred] "Does this state match a predicate?"))
 
-
-(defrecord CoolNumberProblem [x y]
-  IState
-  (restart! [this] (->CoolNumberProblem 0 0))
-  (actions [this] [:inc-x :inc-y])
-  (run! [this action]
-    (if (= action :inc-x)
-      (->CoolNumberProblem (inc x) y)
-      (->CoolNumberProblem x (inc y))))
-  (matches? [this pred] (pred x y)))
-
 (defn prefix? [a b]
   (if (<= (count a) (count b))
     (= a (take (count a) b))
