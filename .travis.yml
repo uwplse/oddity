@@ -1,11 +1,11 @@
 language: clojure
 before_install: cd oddity
 script:
-  - npm install
-  - npm run build
-  - lein test
+- npm install
+- npm run build
+- lein test
 before_deploy:
-  - lein uberjar
+- lein uberjar
 deploy:
   provider: releases
   skip_cleanup: true
@@ -16,3 +16,6 @@ deploy:
   on:
     tags: true
     repo: uwplse/oddity
+notifications:
+  slack:
+    secure: BtAIuhAa0aWRfZ1R7EwGaMJ++Q+uX9jMQ7uGEBhHGL0dntpoypWdwF8EWPBneeFUk32HUFNvew22XWxxu9H2WSV/p0EgZLVXCffM3MY18MR843X2zS+u7RsdDRygho0QeB1NH5LqoLeObFAI+ESj/eilhJ/mN8eUbROUgsVghXuv6yCRIQa6DrRojgy01it5ZNz0XHDpz6J9UFQ7bjTWrP5gfsaHF9oePSqBFMkmmdRLmYNJ82cECq2Y21KuG00g3a+2jIbQSq+pltiaAplpRfX8WqxoVPhmwksDVaSxcd1jdk8srOt9pmh57kVs4yiK9JtMCTjP/huj8UmVHqCpp+AtkIoQEZfp9PJ1DYY8YrxBTLC28TDSbzxW3OmOOxFBRJ6LGlsXwCnaBqdf7L50v6UVbXYpfZG1/0r8IXBgS2RpiiMPYW8whB7r8Yfkd6yFuctiktYdydZpTZGP6z5YP4x3j/1x8bOq7ieP7QQzxMijqurTkMctPRLgwXlZspZ61Ca3eg4sOn0I1g8KpgxIiTTIJWlvKHxd3HeAOVVjtaYWRJlpzqSIDFB0Ga0NtyMZ/td3eW33RPVV8bQs05VGNEHdo8g6fcTxYBJJE5p4kemOcKHNg5ywTtIGdfSGASyyRb3EuIAMdaKtpWuus32YjQFqPiVxJR7lDAyG2cjZKyA=
