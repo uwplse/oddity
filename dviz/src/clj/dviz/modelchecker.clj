@@ -32,7 +32,7 @@
   ([state pred max-depth delta-depth]
    (loop [state state
           depth delta-depth
-          worklist (add-actions-to-worklist state [] ())
+          worklist (new-actions state [])
           next-worklist ()
           current []]
      (cond
