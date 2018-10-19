@@ -1,4 +1,4 @@
-(ns dviz.trees)
+(ns oddity.trees)
 
 (defn leaf [v]
   (list v))

@@ -1,4 +1,4 @@
-(defproject dviz "0.1.0-SNAPSHOT"
+(defproject oddity "0.1.0-SNAPSHOT"
   :description "FIXME: write description"
   :url "http://example.com/FIXME"
   :license {:name "Eclipse Public License"
@@ -52,9 +52,9 @@
 
   :min-lein-version "2.5.0"
 
-  :uberjar-name "dviz.jar"
+  :uberjar-name "oddity.jar"
 
-  :main dviz.system
+  :main oddity.system
 
   :clean-targets ^{:protect false}
   [:target-path
@@ -84,9 +84,9 @@
               }
             :dev
             {:source-paths ["src/cljs" "src/cljc" "env/dev/cljs"]
-             :figwheel {:on-jsload "dviz.core/mount-root"}
+             :figwheel {:on-jsload "oddity.core/mount-root"}
              :compiler
-             {:main "dviz.dev"
+             {:main "oddity.dev"
               :asset-path "/js/out"
               :output-to "target/dev/public/js/app.js"
               :output-dir "target/dev/public/js/out"

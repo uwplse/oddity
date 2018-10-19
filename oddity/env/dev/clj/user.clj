@@ -1,7 +1,7 @@
 (ns user
-  (:require [dviz.system :refer [app-system]]
-            [dviz.middleware :refer [middleware]]
-            [dviz.config :refer [default-config]]
+  (:require [oddity.system :refer [app-system]]
+            [oddity.middleware :refer [middleware]]
+            [oddity.config :refer [default-config]]
             [com.stuartsierra.component :as component]
             [figwheel-sidecar.config :as fw-config]
             [figwheel-sidecar.system :as fw-sys]

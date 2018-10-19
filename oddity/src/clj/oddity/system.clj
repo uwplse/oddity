@@ -1,15 +1,15 @@
-(ns dviz.system
+(ns oddity.system
   (:require [com.stuartsierra.component :as component]
             [system.components.endpoint :refer [new-endpoint]]
             [system.components.handler :refer [new-handler]]
             [system.components.middleware :refer [new-middleware]]
             [system.components.jetty :refer [new-web-server]]
             [system.components.jdbc :refer [new-database]]
-            [dviz.routes :refer [app-routes]]
-            [dviz.debugger :refer [debugger debugger-websocket-server]]
-            [dviz.middleware :refer [middleware]]
-            [dviz.logger :refer [logger log-sender init-logger-db]]
-            [dviz.config :refer [default-config]]
+            [oddity.routes :refer [app-routes]]
+            [oddity.debugger :refer [debugger debugger-websocket-server]]
+            [oddity.middleware :refer [middleware]]
+            [oddity.logger :refer [logger log-sender init-logger-db]]
+            [oddity.config :refer [default-config]]
             [ring.adapter.jetty :refer [run-jetty]]
             [clojure.tools.cli :refer [parse-opts]]
             [clojure.string :as string])

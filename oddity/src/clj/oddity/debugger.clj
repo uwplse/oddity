@@ -1,4 +1,4 @@
-(ns dviz.debugger
+(ns oddity.debugger
   (:require [aleph.http :as http]
             [aleph.tcp :as tcp]
             [manifold.stream :as s]

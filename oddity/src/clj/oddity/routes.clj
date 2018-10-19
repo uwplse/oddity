@@ -1,9 +1,9 @@
-(ns dviz.routes
+(ns oddity.routes
   (:require [compojure.core :refer [GET routes]]
             [compojure.route :refer [not-found resources]]
             [hiccup.page :refer [include-js include-css html5]]
             [config.core :refer [env]]
-            [dviz.config :refer [client-config]]))
+            [oddity.config :refer [client-config]]))
 
 (def mount-target
   [:div#app

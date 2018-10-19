@@ -1,4 +1,4 @@
-(ns dviz.logger
+(ns oddity.logger
   (:require [aleph.http :as http]
             [manifold.stream :as s]
             [manifold.deferred :as d]

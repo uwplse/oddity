@@ -1,6 +1,6 @@
-(ns dviz.modelchecker-test
+(ns oddity.modelchecker-test
   (:require [clojure.test :refer :all]
-            [dviz.modelchecker :as mc]))
+            [oddity.modelchecker :as mc]))
 
 (defrecord CoolNumberProblem [x y]
   mc/IState

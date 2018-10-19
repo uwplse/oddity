@@ -1,4 +1,4 @@
-(ns dviz.api
+(ns oddity.api
   (:require [compojure.api.sweet :refer :all]
             [ring.util.http-response :refer :all]
             [clojure.java.jdbc :refer :all]

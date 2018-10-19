@@ -1,4 +1,4 @@
-(ns dviz.macros)
+(ns oddity.macros)
 
 (defmacro write-and-read-result [to-chan val from-chan]
   `(do

@@ -1,6 +1,6 @@
-(ns ^:figwheel-no-load dviz.dev
+(ns ^:figwheel-no-load oddity.dev
   (:require
-    [dviz.core :as core]
+    [oddity.core :as core]
     [devtools.core :as devtools]))
 
 (devtools/install!)

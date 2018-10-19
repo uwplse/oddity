@@ -1,6 +1,6 @@
-(ns dviz.log-client
+(ns oddity.log-client
   (:require-macros [cljs.core.async.macros :refer [go go-loop alt!]]
-                   [dviz.macros :refer [write-and-read-result]])
+                   [oddity.macros :refer [write-and-read-result]])
   (:require [goog.string :as gs]
             [goog.string.format]
             [haslett.client :as ws]

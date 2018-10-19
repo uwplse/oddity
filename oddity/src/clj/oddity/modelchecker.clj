@@ -1,4 +1,4 @@
-(ns dviz.modelchecker
+(ns oddity.modelchecker
   (:require
    [clojure.core.async :refer [go >!! <!! chan]]))
 

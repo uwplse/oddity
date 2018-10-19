@@ -1,4 +1,4 @@
-(ns dviz.event-source
+(ns oddity.event-source
   (:require [cljs.core.async :refer [put! take! chan <! >! timeout close!]]))
 
 (defprotocol IEventSource

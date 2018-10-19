@@ -1,4 +1,4 @@
-(ns dviz.util
+(ns oddity.util
   (:require [clojure.data :as data]))
 
 (defn foo-cljc [x]

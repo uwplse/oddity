@@ -1,9 +1,9 @@
-(ns dviz.paxos
-  (:require [dviz.util :refer [remove-one]]
+(ns oddity.paxos
+  (:require [oddity.util :refer [remove-one]]
             [goog.string :as gs]
             [goog.string.format]
             [cljs.spec.alpha :as s]
-            [dviz.sim :refer [Simulation]]))
+            [oddity.sim :refer [Simulation]]))
 
 
 (s/def ::id (s/and int? #(<= 0 %)))

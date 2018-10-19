@@ -1,4 +1,4 @@
-(ns dviz.middleware
+(ns oddity.middleware
   (:require [ring.middleware.defaults :refer [api-defaults wrap-defaults]]))
 
 (defn bust-cache-response [response]

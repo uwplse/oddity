@@ -1,6 +1,6 @@
-(ns dviz.sim
-  (:require [dviz.event-source :refer [IEventSource]]
-            [dviz.util :refer [remove-one]]
+(ns oddity.sim
+  (:require [oddity.event-source :refer [IEventSource]]
+            [oddity.util :refer [remove-one]]
             [goog.string :as gs]
             [goog.string.format]
             [cljs.core.async :refer [put! take! chan <! >! timeout close!]]))

@@ -1,4 +1,4 @@
-(ns dviz.config)
+(ns oddity.config)
 
 (defn default-config []
   {:port 3000

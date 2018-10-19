@@ -1,7 +1,7 @@
-(ns dviz.debug-client
+(ns oddity.debug-client
   (:require-macros [cljs.core.async.macros :refer [go go-loop alt!]]
-                   [dviz.macros :refer [write-and-read-result]])
-  (:require [dviz.event-source :refer [IEventSource]]
+                   [oddity.macros :refer [write-and-read-result]])
+  (:require [oddity.event-source :refer [IEventSource]]
             [goog.string :as gs]
             [goog.string.format]
             [haslett.client :as ws]
