@@ -5,7 +5,7 @@
 (defprotocol IState
   (restart! [this] "Reset the state to the beginning of time")
   (actions [this] "Possible next actions in this state")
-  (run! [this action] "Run action")
+  (run-action! [this action] "Run action")
   (matches? [this pred] "Does this state match a predicate?"))
 
 (defn prefix? [a b]
@@ -36,7 +36,7 @@
        :else
        (let [next (first worklist)]
          (if (prefix? current next)
-           (let [state (reduce run! state (drop (count current) next))]
+           (let [state (reduce run-action! state (drop (count current) next))]
              (if (matches? state pred)
                {:result :found :trace next :state state}
                (let [acs (new-actions state next)]

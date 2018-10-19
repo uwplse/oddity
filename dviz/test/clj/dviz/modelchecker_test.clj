@@ -6,7 +6,7 @@
   mc/IState
   (restart! [this] (->CoolNumberProblem 0 0))
   (actions [this] [:inc-x :inc-y])
-  (run! [this action]
+  (run-action! [this action]
     (if (= action :inc-x)
       (->CoolNumberProblem (inc x) y)
       (->CoolNumberProblem x (inc y))))
