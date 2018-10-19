@@ -36,7 +36,9 @@
           next-worklist ()
           current []]
      (cond
-       (and (empty? worklist) (or (empty? next-worklist) (> (+ depth delta-depth) max-depth)))
+       (and (empty? worklist)
+            (or (empty? next-worklist)
+                (> (+ depth delta-depth) max-depth)))
        {:result :not-found}
        
        (empty? worklist)
