@@ -49,7 +49,7 @@
          (if (prefix? current next)
            (let [state (reduce run! state (drop (count current) next))]
              (if (matches? state pred)
-               {:result :found :trace next}
+               {:result :found :trace next :state state}
                (let [acs (new-actions state next)]
                  (if (< (count next) depth)
                    (recur state
