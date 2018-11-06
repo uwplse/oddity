@@ -6,10 +6,8 @@ from shim import Node, Shim
 
 class Client(Node):
     def start_handler(self, name, ret):
-        ret.set_timeout('Send-A', {})
-        ret.send('Server', 'C', {})
-        ret.send('Server', 'D', {})
-        ret.send('Server', 'B', {'Contents': 'This message has them'})
+        ret.set_timeout('Start', {})
+        
 
     def message_handler(self, to, sender, type, body, ret):
         pass
@@ -19,7 +17,13 @@ class Client(Node):
             ret.send(node, type, body)
             
     def timeout_handler(self, name, type, body, ret):
-        ret.send('Server', 'A', {})
+        if type == 'Start':
+            ret.set_timeout('Send-A', {})
+            ret.send('Server', 'CK', {})
+            ret.send('Server', 'D', {})
+            ret.send('Server', 'B', {'Contents': 'This message has them'})
+        else:
+            ret.send('Server', 'A', {})
 
 class Server(Node):
     def start_handler(self, name, ret):
