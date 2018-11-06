@@ -65,6 +65,8 @@
 (defonce main-window-xstart (reagent/atom 0))
 (defonce main-window-ystart (reagent/atom 0))
 
+(defonce main-window-ratio (reagent/atom 1))
+
 (defonce log-state (reagent/atom nil))
 (defonce logger (if (get-config :enable-logging) (log/log-socket log-state)))
 
@@ -512,15 +514,24 @@
 (defn history-event-inspector [inspect-event zoom xstart actual-width ystart]
   (when-let [[x y event] @inspect-event]
     (debug-render "history-event-inspector")
-    [:div {:style {:position "absolute"
-                   :left (/ (+ (/ (- 750 750) 2) (-  x @xstart)) @zoom)
-                   :bottom 110
-                   :z-index 100}}
-     [:svg {:xmlnsXlink "http://www.w3.org/1999/xlink"
-            :width 200 :height 150 :style {:border "1px solid black" :background-color "white"}
-            :viewBox "0 0 800 600"}
-      (nw-state (:state event) true)]
-     ]))
+    (let [max-height 150
+          max-width 200
+          default-ratio (/ max-width max-height)
+          actual-ratio @main-window-ratio
+          height (if (> default-ratio actual-ratio) max-height (/ max-width actual-ratio))
+          width (if (> default-ratio actual-ratio) (* max-height actual-ratio) max-width)]
+      (prn height)
+      (prn width)
+      [:div {:style {:position "absolute"
+                     :left (/ (+ (/ (- 750 750) 2) (-  x @xstart)) @zoom)
+                     :bottom 110
+                     :z-index 100}}
+       [:svg {:xmlnsXlink "http://www.w3.org/1999/xlink"
+              :width width :height height :style {:border "1px solid black" :background-color "white"}
+              :viewBox (gs/format "%d %d %d %d" @main-window-xstart @main-window-ystart (* 800 @main-window-zoom) (* 600 @main-window-zoom))
+              :preserveAspectRatio "xMinYMin"}
+        (nw-state (:state event) true)]
+       ])))
 
 (defn history-view-tree [inspect-event]
   [:g {:transform (translate 50 50)}
@@ -813,57 +824,67 @@
 
 
 (defn main-window []
-  (let [top (reagent/atom 0)
-        left (reagent/atom 0)
-        dragging (reagent/atom false)
-        startx (reagent/atom 0)
-        xstart-on-down (reagent/atom 0)
-        ystart-on-down (reagent/atom 0)
-        starty (reagent/atom 0)]
-    (fn []
-      [:svg {:xmlnsXlink "http://www.w3.org/1999/xlink"
-             :width "100%" :height 600 :style {:border "1px solid black"}
-             :viewBox (gs/format "%d %d %d %d" @main-window-xstart @main-window-ystart (* 800 @main-window-zoom) (* 600 @main-window-zoom))
-             :ref (fn [elem] (when elem
-                               (reset! top (.-top (.getBoundingClientRect elem)))
-                               (reset! left (.-left (.getBoundingClientRect elem)))))
-             :preserveAspectRatio "xMinYMin"
-             :on-mouse-down (fn [e]
-                              (reset! dragging true)
-                              (reset! startx (.-clientX e))
-                              (reset! starty (.-clientY e))
-                              (reset! xstart-on-down @main-window-xstart)
-                              (reset! ystart-on-down @main-window-ystart)
-                              (reset! inspect nil))
-             :on-mouse-up (fn [] (reset! dragging false))
-             :on-mouse-move
-             (fn [e]
-               (when @dragging
-                 (reset! main-window-xstart
-                         (+ @xstart-on-down
-                            (* @main-window-zoom (- @startx (.-clientX e)))))
-                 (reset! main-window-ystart
-                         (+ (* @main-window-zoom (- @starty (.-clientY e)))
-                            @ystart-on-down))))
-             :on-wheel (non-propagating-event-handler
-                        (fn [e]
-                          (let [change (delta-from-wheel @main-window-zoom e)]
-                            (cond
-                              (>= (+ @main-window-zoom change) 1)
-                              (do
-                                (swap! main-window-xstart - (* change (- (.-clientX e) @left)))
-                                (swap! main-window-ystart - (* change (- (.-clientY e) @top)))
-                                (swap! main-window-zoom + change))
-                              (not (= @main-window-zoom 1))
-                              (do
-                                (swap! main-window-xstart - (* (- 1 @main-window-zoom)
-                                                               (- (.-clientX e) @left)))
-                                (swap! main-window-ystart - (* (- 1 @main-window-zoom)
-                                                               (- (.-clientY e) @top)))
-                                
-                                (reset! main-window-zoom 1))
-                              ))))}
-       (nw-state @state false)])))
+  (reagent/with-let
+    [top (reagent/atom 0)
+     left (reagent/atom 0)
+     dragging (reagent/atom false)
+     startx (reagent/atom 0)
+     xstart-on-down (reagent/atom 0)
+     ystart-on-down (reagent/atom 0)
+     starty (reagent/atom 0)
+     this (reagent/current-component)
+     resize-handler (fn []
+                      (let [rect (-> this
+                                     (reagent/dom-node)
+                                     (.getBoundingClientRect))]
+                        (reset! main-window-ratio (/ (.-width rect) (.-height rect)))))
+     _ (.addEventListener js/window "resize" resize-handler)]
+    [:svg {:xmlnsXlink "http://www.w3.org/1999/xlink"
+           :width "100%" :height 600 :style {:border "1px solid black"}
+           :viewBox (gs/format "%d %d %d %d" @main-window-xstart @main-window-ystart (* 800 @main-window-zoom) (* 600 @main-window-zoom))
+           :ref (fn [elem] (when elem
+                             (let [rect (.getBoundingClientRect elem)]
+                               (reset! main-window-ratio (/ (.-width rect) (.-height rect)))
+                               (reset! top (.-top rect))
+                               (reset! left (.-left rect)))))
+           :preserveAspectRatio "xMinYMin"
+           :on-mouse-down (fn [e]
+                            (reset! dragging true)
+                            (reset! startx (.-clientX e))
+                            (reset! starty (.-clientY e))
+                            (reset! xstart-on-down @main-window-xstart)
+                            (reset! ystart-on-down @main-window-ystart)
+                            (reset! inspect nil))
+           :on-mouse-up (fn [] (reset! dragging false))
+           :on-mouse-move
+           (fn [e]
+             (when @dragging
+               (reset! main-window-xstart
+                       (+ @xstart-on-down
+                          (* @main-window-zoom (- @startx (.-clientX e)))))
+               (reset! main-window-ystart
+                       (+ (* @main-window-zoom (- @starty (.-clientY e)))
+                          @ystart-on-down))))
+           :on-wheel (non-propagating-event-handler
+                      (fn [e]
+                        (let [change (delta-from-wheel @main-window-zoom e)]
+                          (cond
+                            (>= (+ @main-window-zoom change) 1)
+                            (do
+                              (swap! main-window-xstart - (* change (- (.-clientX e) @left)))
+                              (swap! main-window-ystart - (* change (- (.-clientY e) @top)))
+                              (swap! main-window-zoom + change))
+                            (not (= @main-window-zoom 1))
+                            (do
+                              (swap! main-window-xstart - (* (- 1 @main-window-zoom)
+                                                             (- (.-clientX e) @left)))
+                              (swap! main-window-ystart - (* (- 1 @main-window-zoom)
+                                                             (- (.-clientY e) @top)))
+                              
+                              (reset! main-window-zoom 1))
+                            ))))}
+     (nw-state @state false)]
+    (finally (.removeEventListener js/window "resize" resize-handler))))
 
 (defn log-status []
   (when (:connected @log-state)
