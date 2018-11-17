@@ -80,7 +80,10 @@
               :optimizations :advanced
               :pretty-print  false
               :foreign-libs [{:file "src/js/bundle.js"
-                             :provides ["cljsjs.react" "cljsjs.react.dom" "webpack.bundle"]}]}
+                              :provides ["cljsjs.react" "cljsjs.react.dom" "webpack.bundle"]
+                              :global-exports {react React
+                                               react-dom ReactDom
+                                               deps deps}}]}
               }
             :dev
             {:source-paths ["src/cljs" "src/cljc" "env/dev/cljs"]
@@ -94,7 +97,10 @@
               :optimizations :none
               :pretty-print  true
               :foreign-libs [{:file "src//js/bundle.js"
-                             :provides ["cljsjs.react" "cljsjs.react.dom" "webpack.bundle"]}]}
+                              :provides ["cljsjs.react" "cljsjs.react.dom" "webpack.bundle"]
+                              :global-exports {react React
+                                               react-dom ReactDom
+                                               deps deps}}]}
              }}}
 
   :figwheel
