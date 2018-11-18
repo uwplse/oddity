@@ -6,3 +6,4 @@ window.deps = {
 
 window.React = window.deps['react'];
 window.ReactDOM = window.deps['react-dom'];
+window.ReactJsonTree = window.deps['react-json-tree'];
