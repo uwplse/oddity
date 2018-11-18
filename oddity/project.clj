@@ -7,7 +7,7 @@
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [ring-server "0.4.0"]
                  [reagent "0.7.0"
-                  :exclusions [cljsjs.react cljsjs.react-dom]]
+                  :exclusions [cljsjs/react cljsjs/react-dom]]
                  [cljsjs/react-transition-group "1.1.3-0"]
                  [reagent-utils "0.2.1"]
                  [ring "1.6.1"]
@@ -79,11 +79,8 @@
               :output-dir "target/prod/cljs-tmp"
               :optimizations :advanced
               :pretty-print  false
-              :foreign-libs [{:file "src/js/bundle.js"
-                              :provides ["cljsjs.react" "cljsjs.react.dom" "webpack.bundle"]
-                              :global-exports {react React
-                                               react-dom ReactDom
-                                               deps deps}}]}
+              :foreign-libs [{:file "src//js/bundle.js"
+                              :provides ["cljsjs.react" "cljsjs.react.dom" "webpack.bundle"]}]}
               }
             :dev
             {:source-paths ["src/cljs" "src/cljc" "env/dev/cljs"]

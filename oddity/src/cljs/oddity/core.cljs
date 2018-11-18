@@ -215,7 +215,7 @@
     (nth colors index)))
 
 (def transition-group (reagent/adapt-react-class js/ReactTransitionGroup.TransitionGroup))
-(def json-tree (aget js/window "deps" "react-json-tree" "default"))
+(def json-tree (aget js/ReactJsonTree "default"))
 
 (defn server-position [state id]
   (if-let [pos (get @server-positions id)]
