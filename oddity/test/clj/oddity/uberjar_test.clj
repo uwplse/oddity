@@ -18,7 +18,7 @@
 
 (defn uberjar-fixture [f]
   (when-not @uberjar-compiled
-    ;(compile-uberjar)
+    (compile-uberjar)
     (reset! uberjar-compiled true))
   (start-uberjar)
   (f)
