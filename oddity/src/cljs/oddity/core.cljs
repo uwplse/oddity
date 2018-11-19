@@ -236,7 +236,6 @@
                       :send)
                  (let [from-pos (server-position state (:from message))
                        to-pos (server-position state (:to message))]
-                   (prn "msg send")
                                (translate (- (:x from-pos) (- (:x to-pos) 80))
                                           (- (:y from-pos) (:y to-pos))))
 
