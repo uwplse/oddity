@@ -12,7 +12,9 @@ addons:
 jobs:
   include:
     - script: lein test
+      name: "Unit tests"
     - script: lein test :integration
+      name: "Integration tests"
     - stage: deploy
       script: lein uberjar
       deploy:
