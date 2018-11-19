@@ -452,11 +452,11 @@
          [:line {:x1 -100 :x2 -50 :y1 0 :y2 0 :stroke-width 10}]
          [:g {:transform (translate -100 -40)}   ; inbox
           [timeouts-and-messages state id [(- (:x pos) 100) (- (:y pos) 40)] static]]
-         (when (not static)
-           [:g {:transform (translate 0 -40)} ; log
-            [transition-group {:component "g"}
-             (doall (map-indexed (fn [index upd] ^{:key index} [server-log-entry-wrapper upd])
-                                 (get-in state [:server-log id])))]])
+         ;; (when (not static)
+         ;;   [:g {:transform (translate 0 -40)} ; log
+         ;;    [transition-group {:component "g"}
+         ;;     (doall (map-indexed (fn [index upd] ^{:key index} [server-log-entry-wrapper upd])
+         ;;                         (get-in state [:server-log id])))]])
          [:circle {:fill "black" :stroke "black" :cx 25 :cy 30 :r 5
                    :on-mouse-down
                    (non-propagating-event-handler
