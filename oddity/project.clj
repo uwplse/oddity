@@ -97,10 +97,7 @@
               :optimizations :none
               :pretty-print  true
               :foreign-libs [{:file "src//js/bundle.js"
-                              :provides ["cljsjs.react" "cljsjs.react.dom" "webpack.bundle"]
-                              :global-exports {react React
-                                               react-dom ReactDom
-                                               deps deps}}]}
+                              :provides ["cljsjs.react" "cljsjs.react.dom" "webpack.bundle"]}]}
              }}}
 
   :figwheel
