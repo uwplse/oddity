@@ -235,7 +235,8 @@
                (if (= (get @message-extra-add-drop-data (select-keys message [:from :to :type :body]))
                       :send)
                  (let [from-pos (server-position state (:from message))
-                                   to-pos (server-position state (:to message))]
+                       to-pos (server-position state (:to message))]
+                   (prn "msg send")
                                (translate (- (:x from-pos) (- (:x to-pos) 80))
                                           (- (:y from-pos) (:y to-pos))))
 
@@ -248,7 +249,7 @@
                  (translate -100 (* index -40))))
              :fill (server-color state (:from message))
              :stroke (server-color state (:from message))
-             :style {:transition (when (not static) "transform 0.5s ease-out")}
+             :style {:transition (when (not static) "transform .5s ease-out")}
              }
          [:rect {:width 40 :height 30
                  :on-context-menu
@@ -315,7 +316,7 @@
                           (.preventDefault e) (.stopPropagation e))
                     0 (when-let [[name action] (first (:actions timeout))] (do-next-event action)))))}
           [:rect {:width 40 :height 30}]
-          [:text {:class "fas" :style {:pointer-events "none" :user-select "none" :fill "white"} :x 20 :y 15 :text-anchor "middle" :alignment-baseline "middle"} "\uf252"]]
+          [:text {:class "fas" :style {:pointer-events "none" :user-select "none" :fill "white"} :x 20 :y 15 :text-anchor "middle" :dominant-baseline "middle"} "\uf252"]]
          [:text {:style {:pointer-events "none" :user-select "none"}
                  :text-anchor "end"
                  :transform (translate -10 20)}
@@ -430,7 +431,8 @@
              :stroke (server-color state id)}
          [:text {:style {:pointer-events "none" :user-select "none"} :x 25 :y -20 :text-anchor "middle"} id]
          [:line {:x1 -35 :x2 -35 :y1 -40 :y2 40 :stroke-dasharray "5,5"}]
-         [:image {:xlinkHref "images/server.png" :x 0 :y -10 :width 50
+         [:image {:xlinkHref "images/server.png" :x 0 :y -10 :width 50 :height 100
+                  :preserveAspectRatio "xMinYMin"
                   :on-context-menu
                   (when (not static)
                     (non-propagating-event-handler (fn [])))
@@ -520,8 +522,6 @@
           actual-ratio @main-window-ratio
           height (if (> default-ratio actual-ratio) max-height (/ max-width actual-ratio))
           width (if (> default-ratio actual-ratio) (* max-height actual-ratio) max-width)]
-      (prn height)
-      (prn width)
       [:div {:style {:position "absolute"
                      :left (/ (+ (/ (- 750 750) 2) (-  x @xstart)) @zoom)
                      :bottom 110
@@ -654,7 +654,6 @@
 (defn inspector []
   (when-let [{:keys [x y value highlight-paths actions]} @inspect]
     (debug-render "inspector")
-    (prn highlight-paths)
     (log/log logger {:inspect value})
     [:div {:style {:position "absolute" :top (/ (- y @main-window-ystart) @main-window-zoom) :left (/ (- x @main-window-xstart) @main-window-zoom)
                    :border "1px solid black" :background "white"
