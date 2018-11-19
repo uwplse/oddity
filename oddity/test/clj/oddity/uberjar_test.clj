@@ -11,14 +11,14 @@
 
 (defn start-uberjar []
   (reset! uberjar (.start (ProcessBuilder. (into-array ["java" "-jar" "target/oddity.jar"]))))
-  (Thread/sleep 6000))
+  (Thread/sleep 10000))
 
 (defn stop-uberjar []
   (.destroy @uberjar))
 
 (defn uberjar-fixture [f]
   (when-not @uberjar-compiled
-    (compile-uberjar)
+    ;(compile-uberjar)
     (reset! uberjar-compiled true))
   (start-uberjar)
   (f)
@@ -29,7 +29,6 @@
 (defn driver-fixture 
   "Browser test instance. Binds to *driver* for use in tests."
   [f]
-  (println "driver fixture")
   (with-chrome-headless {:args ["--no-sandbox"]} driver
     (binding [*driver* driver]
       (f))))
