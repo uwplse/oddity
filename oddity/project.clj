@@ -67,6 +67,9 @@
   :test-paths ["test/clj" "test/cljc"]
   :resource-paths ["resources" "target/prod"]
 
+  :test-selectors {:default (complement :integration)
+                   :integration :integration}
+
   :minify-assets
   {:assets
    {"resources/public/css/site.min.css" "resources/public/css/site.css"}}
@@ -115,7 +118,7 @@
                                   [com.cemerick/piggieback "0.2.2"]
                                   [pjstadig/humane-test-output "0.8.2"]
                                   [org.clojure/test.check "0.9.0"]
-                                  ]
+                                  [etaoin "0.2.9"]]
 
                    :source-paths ["env/dev/clj"]
                    :plugins [[lein-figwheel "0.5.15"]

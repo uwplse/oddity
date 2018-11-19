@@ -1,21 +1,28 @@
 language: clojure
-before_install: cd oddity
-script:
-- npm install
-- npm run build
-- lein test
-before_deploy:
-- lein uberjar
-deploy:
-  provider: releases
-  skip_cleanup: true
-  script: lein uberjar
-  api_key:
-    secure: EOGO3WbTpVxsDNGB2w5IjIDfW8Afx6E14/gjXb3YrKLJp0PDUe5UWwt1djrJzSjgohZAoA7rLFHMcQvvgEM9z5R20pWICX4oE/IWAwUmZ1PvlNt2bGbDHlWBo5GHyU6JbqWwC0w6a093ZorXFIOVeUfH5vnHYB7PTajzK151hSoQyOwxqhn2JcP9NL0/GfxQkkuNz5GynPDVzppWi5ndkMe/G4o8jOmBy+39ORJ8vK7yp5OniOwwGkPXLBmO7Dtv3bPl3pvImqAxts00jwi3dKwoya+Sn4Xn2ag3zdC5KhXyX8wW8rC2lBqQ/1C6oirk/VyS4Y6vPG8NneQR/c5dOSyqiVkQveyS7R9rVPHeUJb7p2MogbooZk+FjDaONhLsl7tHfrBa9UwDDysxpiGsWdz7BpKQGrTMJIWnG/lcy7AxPHR11KBgoIEXhW+I7eyek4C5h0g+Co4Ma/5ONxLXhwtrhhevvzuLf863FVRc/sDi+dC9C2KKEETWANbqX9AKrfokkg51y3z+w8X9rp0xQucXktZvspcc05U1uHEeLCBlAw0wlHFHdjW3DvclnKfY4x4MzgtNvwslRsIKx8fpY8cO0TDrU9m0TzGKoLMiFrEM+hoBaZwO5XdaXIokdusv/PSK7FbKV66JMvPsruVon8uN3+/WyJgZS7w+bX1nkYs=
-  file: target/oddity.jar
-  on:
-    tags: true
-    repo: uwplse/oddity
+before_install:
+  - cd oddity
+  - npm install
+  - npm run build
+addons:
+  apt: 
+    packages:
+      - google-chrome-stable
+      - chromium-chromedriver
+jobs:
+  include:
+    - script: lein test
+    - script: lein test :integration
+    - stage: deploy
+      script: lein uberjar
+      deploy:
+        provider: releases
+        skip_cleanup: true
+        api_key:
+          secure: EOGO3WbTpVxsDNGB2w5IjIDfW8Afx6E14/gjXb3YrKLJp0PDUe5UWwt1djrJzSjgohZAoA7rLFHMcQvvgEM9z5R20pWICX4oE/IWAwUmZ1PvlNt2bGbDHlWBo5GHyU6JbqWwC0w6a093ZorXFIOVeUfH5vnHYB7PTajzK151hSoQyOwxqhn2JcP9NL0/GfxQkkuNz5GynPDVzppWi5ndkMe/G4o8jOmBy+39ORJ8vK7yp5OniOwwGkPXLBmO7Dtv3bPl3pvImqAxts00jwi3dKwoya+Sn4Xn2ag3zdC5KhXyX8wW8rC2lBqQ/1C6oirk/VyS4Y6vPG8NneQR/c5dOSyqiVkQveyS7R9rVPHeUJb7p2MogbooZk+FjDaONhLsl7tHfrBa9UwDDysxpiGsWdz7BpKQGrTMJIWnG/lcy7AxPHR11KBgoIEXhW+I7eyek4C5h0g+Co4Ma/5ONxLXhwtrhhevvzuLf863FVRc/sDi+dC9C2KKEETWANbqX9AKrfokkg51y3z+w8X9rp0xQucXktZvspcc05U1uHEeLCBlAw0wlHFHdjW3DvclnKfY4x4MzgtNvwslRsIKx8fpY8cO0TDrU9m0TzGKoLMiFrEM+hoBaZwO5XdaXIokdusv/PSK7FbKV66JMvPsruVon8uN3+/WyJgZS7w+bX1nkYs=
+        file: target/oddity.jar
+        on:
+          tags: true
+          repo: uwplse/oddity
 notifications:
   slack:
     secure: BtAIuhAa0aWRfZ1R7EwGaMJ++Q+uX9jMQ7uGEBhHGL0dntpoypWdwF8EWPBneeFUk32HUFNvew22XWxxu9H2WSV/p0EgZLVXCffM3MY18MR843X2zS+u7RsdDRygho0QeB1NH5LqoLeObFAI+ESj/eilhJ/mN8eUbROUgsVghXuv6yCRIQa6DrRojgy01it5ZNz0XHDpz6J9UFQ7bjTWrP5gfsaHF9oePSqBFMkmmdRLmYNJ82cECq2Y21KuG00g3a+2jIbQSq+pltiaAplpRfX8WqxoVPhmwksDVaSxcd1jdk8srOt9pmh57kVs4yiK9JtMCTjP/huj8UmVHqCpp+AtkIoQEZfp9PJ1DYY8YrxBTLC28TDSbzxW3OmOOxFBRJ6LGlsXwCnaBqdf7L50v6UVbXYpfZG1/0r8IXBgS2RpiiMPYW8whB7r8Yfkd6yFuctiktYdydZpTZGP6z5YP4x3j/1x8bOq7ieP7QQzxMijqurTkMctPRLgwXlZspZ61Ca3eg4sOn0I1g8KpgxIiTTIJWlvKHxd3HeAOVVjtaYWRJlpzqSIDFB0Ga0NtyMZ/td3eW33RPVV8bQs05VGNEHdo8g6fcTxYBJJE5p4kemOcKHNg5ywTtIGdfSGASyyRb3EuIAMdaKtpWuus32YjQFqPiVxJR7lDAyG2cjZKyA=
