@@ -16,7 +16,10 @@ jobs:
     - script: lein test :integration
       name: "Integration tests"
     - stage: deploy
+      name: "Deploying github release"
       script: lein uberjar
+      if:
+        repo = uwplse/oddity and tag is present
       deploy:
         provider: releases
         skip_cleanup: true
