@@ -79,8 +79,12 @@ cool!
 
 ## Testing
 
-You can run the tests with
+You can run the unit tests with
 
 ```
 lein test
 ```
+
+Oddity also has some integration tests. These involve some non-trivial setup and
+you probably don't want to run them in development; luckily, TravisCI knows how
+to run them. For more information on these, see the [Travis configuration](.travis.yml).
