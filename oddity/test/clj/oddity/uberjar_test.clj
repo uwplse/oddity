@@ -42,4 +42,5 @@
   (testing "Page loads"
     (go *driver* "http://localhost:3000")
     (wait-visible *driver* {:id :app})
+    (wait 3)
     (is (has-text? *driver* "Servers"))))
