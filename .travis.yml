@@ -3,6 +3,7 @@ before_install:
   - cd oddity
   - npm install
   - npm run build
+  - export PATH=/usr/lib/chromium-browser/:$PATH
 addons:
   apt: 
     packages:
