@@ -10,7 +10,11 @@
             [compojure.core :refer [routes GET]]
             [compojure.route :as route]
             [ring.middleware.params :as params]
-            [com.stuartsierra.component :as component]))
+            [com.stuartsierra.component :as component]
+            [oddity.modelchecker :as mc]
+            [oddity.dsmodelchecker :as dsmc]
+            [oddity.coerce :as coerce]
+            [clojure.walk :refer [stringify-keys]]))
 
 (def DEFAULT_ID "1")
 
@@ -78,6 +82,7 @@
 
 (defn st [dbg] @(get dbg :state))
 
+
 (defn send-message [dbg msg]
   (let [socket (get-in (st dbg) [:sessions (get msg "id") :sockets (get msg "to")])]
     (s/put! socket (dissoc msg "id"))
@@ -104,6 +109,21 @@
 
 (defn quit [dbg] (quit-all-sessions (:state dbg)))
 
+(defn model-checker-state-for [dbg id prefix]
+  (dsmc/make-dsstate 
+   (reify dsmc/ISystemControl
+     (send-message! [this message]
+       (send-message dbg (assoc (stringify-keys message) "id" id)))
+     (restart-system! [this] (send-start dbg id)))
+   prefix))
+
+(defn run-model-checker [dbg id prefix pred]
+  (let [st (model-checker-state-for dbg id prefix)
+        ;; TODO max-depth controls
+        res (mc/dfs st pred 6)]
+    (mc/restart! (:state res))
+    {:trace (:trace res)}))
+
 (defn handle-debug-msg [dbg msg]
   (let [msg (json/read-str msg)
         resp (cond
@@ -112,6 +132,9 @@
                           [id {:servers (keys (get s :sockets)) :trace (get s :trace)}]))
                (= "start" (get msg "msgtype")) (send-start dbg (get msg "id"))
                (= "reset" (get msg "msgtype")) (send-reset dbg (get msg "id") (get msg "log"))
+               (= "run-until" (get msg "msgtype"))
+               (run-model-checker dbg (get msg "id") (get msg "prefix")
+                                  (coerce/coerce-pred (get msg "pred")))
                :else (send-message dbg msg))]
     (json/write-str resp)))
 

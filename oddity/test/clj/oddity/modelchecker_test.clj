@@ -5,7 +5,7 @@
 (defrecord CoolNumberProblem [x y]
   mc/IState
   (restart! [this] (->CoolNumberProblem 0 0))
-  (actions [this] [:inc-x :inc-y])
+  (actions [this pred] [:inc-x :inc-y])
   (run-action! [this action]
     (if (= action :inc-x)
       (->CoolNumberProblem (inc x) y)

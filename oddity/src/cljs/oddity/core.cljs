@@ -898,6 +898,23 @@
          "Enable logging"]]
        )]))
 
+(defn run-until-controls []
+  (when (event-source/supports? @events :run-until)
+    [:div {:style {:display "inline" :margin "20px" :border "1px solid black"}}
+     [:span "Run until:"]
+     [:input#run-until-node-name {:type "text"}]
+     [:input#run-until-state-path {:type "text"}]
+     [:input#run-until-state-value {:type "text"}]
+     [:button {:on-click (fn []
+                           (let [node (.-value (get-element "run-until-node-name"))
+                                 path (clojure.string/split
+                                       (.-value (get-element "run-until-state-path"))
+                                       ".")
+                                 value (.-value (get-element "run-until-state-value"))
+                                 pred {:type :node-state :node node :path path :value value}]
+                             (do-next-event {:type :run-until :pred pred})))}
+      "Run"]]))
+
 (defn home-page []
   (fn []
     (debug-render "home page")
@@ -906,6 +923,7 @@
      [:br]
      [next-event-button]
      [reset-server-positions-button]
+     [run-until-controls]
      ;[reset-events-button]
      ;[paxos-events-button]
      [history-view]

@@ -5,7 +5,18 @@
   (next-event [this ch action]
     "put the next event and a new EventSource onto the channel")
   (reset [this ch]
-    "put a reset version of the event source onto the channel"))
+    "put a reset version of the event source onto the channel")
+  (supports? [this feature]
+    "tests whether the event source supports a given optional feature"))
+
+;; By default, event sources don't support any optional features
+(extend-type default
+  IEventSource
+  (supports? [_ _] false))
+
+(extend-type nil
+  IEventSource
+  (supports? [_ _] false))
 
 (defrecord StaticEventSource [evs]
   IEventSource

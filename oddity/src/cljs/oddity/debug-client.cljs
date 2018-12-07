@@ -2,6 +2,7 @@
   (:require-macros [cljs.core.async.macros :refer [go go-loop alt!]]
                    [oddity.macros :refer [write-and-read-result]])
   (:require [oddity.event-source :refer [IEventSource]]
+            [oddity.coerce :as c]
             [goog.string :as gs]
             [goog.string.format]
             [haslett.client :as ws]
@@ -14,18 +15,29 @@
   IEventSource
   (next-event [this ch action]
     (go
-      (if (= (:type action) :trace)
+      (cond
+        (= (:type action) :trace)
         ;; TODO: this is very hacky
         (let [n (write-and-read-result in [st action] out)]
           (dotimes [_ n]
             (let [[res st] (<! out)]
               (put! ch [res (Debugger. in out state-atom st)]))))
+        (= (:type action) :run-until)
+        (let [n (write-and-read-result in [st action] out)]
+          (dotimes [_ n]
+            (let [[res st] (<! out)]
+              (put! ch [res (Debugger. in out state-atom st)]))))
+        :else
         (let [[res st] (write-and-read-result in [st action] out)]
           (put! ch [res (Debugger. in out state-atom st)])))))
   (reset [this ch]
     (go
       (let [[res st] (write-and-read-result in [st {:type :reset}] out)]
-        (put! ch this)))))
+        (put! ch this))))
+  (supports? [this feature]
+    (case feature
+      :run-until true
+      false)))
 
 (defonce timeout-duration 1000)
 
@@ -48,6 +60,8 @@
         (make-debugger-msg state "msg" {:to to :from from :type type :body body :raw raw})))
     :reset
     (make-debugger-msg state "reset" {:log (:log state)})
+    :run-until
+    nil
     :duplicate
     nil
     :drop nil))
@@ -248,6 +262,8 @@
                  (into trace [{"duplicate-message" (get t "deliver-message")} t]))
           (recur new-counts (rest remaining) (into trace [t])))))))
 
+(defn prefix-from-log [l] (rest (vec  l)))
+
 (defn debug-socket [state-atom]
   (let [in (chan) out (chan)]
     (go
@@ -286,6 +302,23 @@
                               (let [t (first remaining)
                                     [action res] (get-action-and-res servers t)]
                                 (let [msg (assoc (make-msg state action) :state-id (:remote-id state))
+                                      event (make-event action res)
+                                      state (update-state state msg event)]
+                                  (.log js/console (gs/format "Replay event %s" event))
+                                  (>! out [event state])
+                                  (recur (rest remaining) state))))))
+                        (= (:type action) :run-until)
+                        (let [prefix (prefix-from-log (:log st))
+                              pred (:pred action)
+                              msg (make-debugger-msg st "run-until" {:pred pred :prefix prefix})
+                              res (write-and-read-result to-server msg from-server)
+                              trace (get res "trace")]
+                          (>! out (count trace))
+                          (loop [remaining trace state st]
+                            (when-not (empty? remaining)
+                              (let [action (first (get-action-and-res {} (first remaining)))]
+                                (let [msg (assoc (make-msg state action) :state-id (:remote-id state))
+                                      res (write-and-read-result to-server msg from-server)
                                       event (make-event action res)
                                       state (update-state state msg event)]
                                   (.log js/console (gs/format "Replay event %s" event))
