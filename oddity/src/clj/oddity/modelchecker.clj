@@ -1,6 +1,7 @@
 (ns oddity.modelchecker
   (:require
-   [clojure.core.async :refer [go >!! <!! chan]]))
+   [clojure.core.async :refer [go >!! <!! chan]]
+   [taoensso.tufte :refer [p]]))
 
 (defprotocol IState
   (restart! [this] "Reset the state to the beginning of time")
@@ -34,7 +35,9 @@
        {:result :not-found}
        
        (empty? worklist)
-       (recur state (+ depth delta-depth) next-worklist () current (inc n-explored))
+       (do
+         (prn "Incrementing depth")
+         (recur state (+ depth delta-depth) next-worklist () current (inc n-explored)))
 
        :else
        (let [next (first worklist)]

@@ -14,7 +14,9 @@
             [oddity.modelchecker :as mc]
             [oddity.dsmodelchecker :as dsmc]
             [oddity.coerce :as coerce]
-            [clojure.walk :refer [stringify-keys]]))
+            [clojure.walk :refer [stringify-keys]]
+            [taoensso.tufte :refer [p]])
+  (:import (java.util.concurrent TimeoutException TimeUnit FutureTask)))
 
 (def DEFAULT_ID "1")
 
@@ -93,10 +95,12 @@
 
 (defn send-start [dbg id]
   (combine-returns (doall
-                    (for [[server socket] (get-in (st dbg) [:sessions id :sockets])]
-                      (do 
-                        (s/put! socket {:msgtype "start"})
-                        [server @(s/take! socket)])))))
+                    (pmap
+                     (fn [[server socket]]
+                       (do 
+                         (s/put! socket {:msgtype "start"})
+                         [server @(s/take! socket)]))
+                     (get-in (st dbg) [:sessions id :sockets])))))
 
 (defn send-reset [dbg id log]
   (send-start dbg id)
@@ -117,12 +121,29 @@
      (restart-system! [this] (send-start dbg id)))
    prefix))
 
-(defn run-model-checker [dbg id prefix pred]
+(defn run-model-checker [dbg id prefix pred opts]
   (let [st (model-checker-state-for dbg id prefix)
-        ;; TODO max-depth controls
-        res (mc/dfs st pred 6)]
-    (mc/restart! (:state res))
-    {:trace (:trace res)}))
+        max-depth (get opts :max-depth 6)
+        delta-depth (get opts :delta-depth 3)
+        timeout (get opts :timeout 10000)
+        thunk (bound-fn [] (mc/dfs st pred max-depth delta-depth))
+        task (FutureTask. thunk)
+        thr (Thread. task)]
+    (try
+      (.start thr)
+      (let [res (.get task timeout TimeUnit/MILLISECONDS)]
+        (mc/restart! st)
+        {:ok true :trace (:trace res)})
+      (catch TimeoutException e
+        (.cancel task true)
+        (.stop thr)
+        (mc/restart! st)
+        {:ok false :error "Timeout"})
+      (catch Exception e
+        (.cancel task true)
+        (.stop thr)
+        (mc/restart! st)
+        {:ok false :error (.str e)}))))
 
 (defn handle-debug-msg [dbg msg]
   (let [msg (json/read-str msg)
@@ -134,7 +155,8 @@
                (= "reset" (get msg "msgtype")) (send-reset dbg (get msg "id") (get msg "log"))
                (= "run-until" (get msg "msgtype"))
                (run-model-checker dbg (get msg "id") (get msg "prefix")
-                                  (coerce/coerce-pred (get msg "pred")))
+                                  (coerce/coerce-pred (get msg "pred"))
+                                  {})
                :else (send-message dbg msg))]
     (json/write-str resp)))
 
@@ -171,7 +193,8 @@
             (d/catch
                 (fn [ex]
                   (d/future (quit dbg))
-                  (s/put! socket (apply str "ERROR: " ex "\n" (map str (.getStackTrace ex))))
+                  (s/put! socket (json/write-str {"ok" false
+                                                  "error" (apply str "ERROR: " ex "\n" (map str (.getStackTrace ex)))}))
                   (s/close! socket)))))
       non-websocket-request)))
 
