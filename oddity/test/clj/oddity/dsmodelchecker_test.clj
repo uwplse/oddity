@@ -23,8 +23,16 @@
 (deftest sort-actions-test
   (let [pred {:type :node-state :node "A"}]
     (is (= (sort-actions pred
-                         [{:msgtype "timeout"} {:msgtype "msg"} {:msgtype "timeout"}])
-           [{:msgtype "msg"} {:msgtype "timeout"} {:msgtype "timeout"}]))
+                         [{:deliver-timeout {:msgtype "timeout"}}
+                          {:deliver-message {:msgtype "msg"}}
+                          {:deliver-timeout} {:msgtype "timeout"}])
+           [{:deliver-message {:msgtype "msg"}}
+            {:deliver-timeout {:msgtype "timeout"}}
+            {:deliver-timeout} {:msgtype "timeout"}]))
     (is (= (sort-actions pred
-                         [{:msgtype "timeout" :to "B"} {:msgtype "msg"} {:msgtype "timeout" :to "A"}])
-           [{:msgtype "msg"} {:msgtype "timeout" :to "A"} {:msgtype "timeout" :to "B"}]))))
+                         [{:deliver-timeout {:msgtype "timeout" :to "B"}}
+                          {:deliver-message {:msgtype "msg"}}
+                          {:deliver-timeout {:msgtype "timeout" :to "A"}}])
+           [{:deliver-message {:msgtype "msg"}}
+            {:deliver-timeout {:msgtype "timeout" :to "A"}}
+            {:deliver-timeout {:msgtype "timeout" :to "B"}}]))))
