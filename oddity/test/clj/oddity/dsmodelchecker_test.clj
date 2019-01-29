@@ -25,10 +25,10 @@
     (is (= (sort-actions pred
                          [{:deliver-timeout {:msgtype "timeout"}}
                           {:deliver-message {:msgtype "msg"}}
-                          {:deliver-timeout} {:msgtype "timeout"}])
+                          {:deliver-timeout {:msgtype "timeout"}}])
            [{:deliver-message {:msgtype "msg"}}
             {:deliver-timeout {:msgtype "timeout"}}
-            {:deliver-timeout} {:msgtype "timeout"}]))
+            {:deliver-timeout {:msgtype "timeout"}}]))
     (is (= (sort-actions pred
                          [{:deliver-timeout {:msgtype "timeout" :to "B"}}
                           {:deliver-message {:msgtype "msg"}}
