@@ -1,2 +1,3 @@
 auto/
 *.pyc
+/oddity/resources/public/.DS_Store

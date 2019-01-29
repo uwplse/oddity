@@ -8,7 +8,12 @@
                  [ring-server "0.4.0"]
                  [reagent "0.7.0"
                   :exclusions [cljsjs/react cljsjs/react-dom]]
-                 [cljsjs/react-transition-group "1.1.3-0"]
+                 [cljsjs/react-transition-group "2.4.0-0"
+                  :exclusions [cljsjs/react cljsjs/react-dom]]
+                 [cljsjs/react-popper "0.10.4-0"
+                  :exclusions [cljsjs/react cljsjs/react-dom]]
+                 [baking-soda "0.2.0"
+                  :exclusions [cljsjs/react cljsjs/react-dom]]
                  [reagent-utils "0.2.1"]
                  [ring "1.6.1"]
                  [ring/ring-defaults "0.3.0"]
@@ -83,8 +88,8 @@
               :output-dir "target/prod/cljs-tmp"
               :optimizations :advanced
               :pretty-print  false
-              :foreign-libs [{:file "src//js/bundle.js"
-                              :provides ["cljsjs.react" "cljsjs.react.dom" "webpack.bundle"]}]}
+              :foreign-libs [{:file "src/js/bundle.js"
+                              :provides ["cljsjs.react" "cljsjs.react.dom" "react" "react_dom" "webpack.bundle"]}]}
               }
             :dev
             {:source-paths ["src/cljs" "src/cljc" "env/dev/cljs"]
@@ -97,8 +102,8 @@
               :source-map true
               :optimizations :none
               :pretty-print  true
-              :foreign-libs [{:file "src//js/bundle.js"
-                              :provides ["cljsjs.react" "cljsjs.react.dom" "webpack.bundle"]}]}
+              :foreign-libs [{:file "src/js/bundle.js"
+                              :provides ["cljsjs.react" "cljsjs.react.dom" "react" "react_dom" "webpack.bundle"]}]}
              }}}
 
   :figwheel

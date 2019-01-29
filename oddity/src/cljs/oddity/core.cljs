@@ -5,6 +5,7 @@
             [accountant.core :as accountant]
             [vomnibus.color-brewer :as cb]
             [oddity.circles :as c]
+            [baking-soda.core :as b]
             [oddity.event-source :as event-source]
             [oddity.util :refer [remove-one differing-paths fields-match]]
             [oddity.sim]
@@ -27,6 +28,9 @@
             [webpack.bundle]))
 
 (def DEBUG false)
+
+(defn log [& args]
+  (.log js/console (apply gs/format args)))
 
 (defn delta-from-wheel [zoom e]
   (let [raw (.-deltaY e)
@@ -215,6 +219,7 @@
     (nth colors index)))
 
 (def transition-group (reagent/adapt-react-class js/ReactTransitionGroup.TransitionGroup))
+(def transition (reagent/adapt-react-class js/ReactTransitionGroup.Transition))
 (def json-tree (aget js/ReactJsonTree "default"))
 
 (defn server-position [state id]
@@ -224,14 +229,15 @@
           angle (server-angle state index)]
       (c/angle server-circle angle))))
 
-(defn message [state index message inbox-loc status static]
+(defn message [status state index message inbox-loc static]
   (let [mouse-over (reagent/atom false)]
-    (fn [state index message inbox-loc status static]
+    (fn [status state index message inbox-loc static]
       (debug-render "message")
+      (log "Message %s" status)
       (let [[inbox-loc-x inbox-loc-y] inbox-loc]
         [:g {:transform
              (case status
-               :new
+               "exited"
                (if (= (get @message-extra-add-drop-data (select-keys message [:from :to :type :body]))
                       :send)
                  (let [from-pos (server-position state (:from message))
@@ -240,8 +246,8 @@
                                           (- (:y from-pos) (:y to-pos))))
 
                  (translate 5 0))
-               :stable (translate 5 (* index -40))
-               :deleted
+               ("entering" "entered") (translate 5 (* index -40))
+               "exiting"
                (if (= (get @message-extra-add-drop-data (select-keys message [:from :to :type :body]))
                       :deliver)
                  (translate 50 0)
@@ -268,36 +274,17 @@
           (:type message)]]))))
 
 
-(def message-wrapper
-  (reagent/create-class
-   {:get-initial-state (fn []
-                         {:status  :new})
-    :component-will-appear (fn [cb]
-                             (this-as this
-                               (reagent/replace-state this {:status :stable})
-                               (cb)))
-    :component-will-enter (fn [cb]
-                            (this-as this
-                              (reagent/replace-state this {:status :stable})
-                              (cb)))
-    :component-will-leave (fn [cb]
-                            (this-as this
-                              (reagent/replace-state this {:status :deleted})
-                              (js/setTimeout cb 500)))
-    :display-name "message-wrapper"
-    :reagent-render
-    (fn [state index m inbox-loc static]
-      [message state index m inbox-loc (:status (reagent/state (reagent/current-component))) static])}))
 
-(defn timeout [state index timeout inbox-loc status static]
+(defn timeout [status state index timeout inbox-loc static]
   (let [mouse-over (reagent/atom false)]
-    (fn [state index timeout inbox-loc status static]
+    (fn [status state index timeout inbox-loc static]
       (debug-render "timeout")
+      (log "Timeout %s status %s state %s index %s" timeout status state index)
       (let [[inbox-loc-x inbox-loc-y] inbox-loc]
         [:g {:transform
              (case status
-               (:new :deleted) (translate 50 0)
-               :stable (translate 5 (* index -40)))
+               ("exiting" "exited") (translate 50 0)
+               ("entering" "entered") (translate 5 (* index -40)))
              :fill (server-color state (:to timeout))
              :stroke (server-color state (:to timeout))
              :style {:transition (when (not static) "transform 0.5s ease-out")}
@@ -322,65 +309,21 @@
           (:type timeout)]]))))
 
 
-(def timeout-wrapper
-  (reagent/create-class
-   {:get-initial-state (fn [] {:status  :new})
-    :component-will-appear (fn [cb]
-                             (this-as this
-                               (reagent/replace-state this {:status :stable})
-                               (cb)))
-    :component-will-enter (fn [cb]
-                            (this-as this
-                              (reagent/replace-state this {:status :stable})
-                              (cb)))
-    :component-will-leave (fn [cb]
-                            (this-as this
-                              (reagent/replace-state this {:status :deleted})
-                              (js/setTimeout cb 500)))
-    :display-name "timeout-wrapper"
-    :reagent-render
-    (fn [state index t inbox-loc static]
-      [timeout state index t inbox-loc (:status (reagent/state (reagent/current-component))) static])}))
+(defn transition-wrapper [{:keys [in component component-args duration]}]
+  [transition {:in in
+               :timeout duration
+               :unmountOnExit true}
+   (fn [status]
+     (log "Transition wrapper %s" (js->clj component-args))
+     (reagent/as-element
+      (into [component status] (js->clj component-args))))])
 
 (defn path-component [c]
   (if (keyword? c) (str (name c)) (str c)))
 
-(defn server-log-entry-line [index [path val]]
-  (debug-render "server-log-entry-line")
-  [:tspan {:x "0" :dy "-1.2em"} (gs/format "%s = %s" (clojure.string/join "." (map path-component path)) val)])
-
 (defn component-map-indexed [el f l & args]
   (into el (map-indexed (fn [index item] (with-meta (vec (concat [f] args [index item]))
                                            {:key [index item]})) l)))
-
-(defn server-log-entry [updates status]
-  (fn [updates status]
-    (debug-render "server-log-entry")
-    [:g {:transform
-         (case status
-           :new (translate 0 0)
-           :stable (translate 0 -80))
-         :style {:opacity (case status :new "1.0" :stable "0.0")
-                 :transition "all 3s ease-out"
-                 :transition-property "transform, opacity"
-                 :pointer-events "none" :user-select "none"}}
-     (component-map-indexed [:text] server-log-entry-line updates)]))
-
-(def server-log-entry-wrapper
-  (reagent/create-class
-   {:get-initial-state (fn [] {:status  :new})
-    :component-will-appear (fn [cb]
-                             (this-as this
-                               (reagent/replace-state this {:status :stable})
-                               (cb)))
-    :component-will-enter (fn [cb]
-                            (this-as this
-                              (reagent/replace-state this {:status :stable})
-                              (cb)))
-    :display-name "server-log-wrapper"
-    :reagent-render
-    (fn [upd]
-      [server-log-entry upd (:status (reagent/state (reagent/current-component)))])}))
 
 (defn timeouts-and-messages [state server-id inbox-pos static]
   (let [timeouts (get-in state [:timeouts server-id])
@@ -389,20 +332,30 @@
     (debug-render "timeouts-and-messages")
     [:g
      (if static
-       (doall (map-indexed (fn [index t] ^{:key t} [timeout state index t inbox-pos :stable static])
+       (doall (map-indexed (fn [index t] ^{:key t} [timeout "entered" state index t inbox-pos static])
                            timeouts))
-       [transition-group {:component "g"}
-        (doall (map-indexed (fn [index t] ^{:key t} [timeout-wrapper state index t inbox-pos static])
+       [transition-group {:component "g" :className "dougsclass"}
+        (doall (map-indexed (fn [index t]
+                              (let [child (reagent/reactify-component transition-wrapper)]
+                                (reagent/create-element child
+                                                        #js {:key t
+                                                             :component timeout
+                                                             :component-args [state index t inbox-pos static]
+                                                             :duration 500})))
                             timeouts))]
        )
      (if static
        (doall (map-indexed (fn [index m] ^{:key m}
-                             [message state (+ index ntimeouts) m inbox-pos :stable static])
+                             [message "entered" state (+ index ntimeouts) m inbox-pos static])
                            messages))
        [transition-group {:component "g"}
-        (doall (map-indexed (fn [index m] ^{:key m}
-                              [message-wrapper state (+ index ntimeouts) m
-                               inbox-pos static])
+        (doall (map-indexed (fn [index m]
+                              (let [child (reagent/reactify-component transition-wrapper)]
+                                (reagent/create-element child
+                                                        #js {:key m
+                                                             :component message
+                                                             :component-args [state (+ index ntimeouts) m inbox-pos static]
+                                                             :duration 500})))
                             messages))]
        )
      ]))
@@ -453,11 +406,6 @@
          [:line {:x1 -100 :x2 -50 :y1 0 :y2 0 :stroke-width 10}]
          [:g {:transform (translate -100 -40)}   ; inbox
           [timeouts-and-messages state id [(- (:x pos) 100) (- (:y pos) 40)] static]]
-         ;; (when (not static)
-         ;;   [:g {:transform (translate 0 -40)} ; log
-         ;;    [transition-group {:component "g"}
-         ;;     (doall (map-indexed (fn [index upd] ^{:key index} [server-log-entry-wrapper upd])
-         ;;                         (get-in state [:server-log id])))]])
          [:circle {:fill "black" :stroke "black" :cx 25 :cy 30 :r 5
                    :on-mouse-down
                    (non-propagating-event-handler
@@ -603,40 +551,6 @@
                               ))))}
         [history-view-tree inspect-event]]
        [history-event-inspector inspect-event zoom xstart actual-width ystart]])))
-
-(defn next-event-button []
-  (let []
-    (fn [n]
-      (if @events
-        [:button {:on-click
-                  (fn []
-                    (do-next-event nil))}
-         "Random next event"]))))
-
-
-(defn reset-events-button []
-  (let []
-    (fn [n] 
-      [:button {:on-click
-                (fn []
-                  (reset! events (event-source/event-source-static-example)))}
-       "Static events"])))
-
-(defn paxos-events-button []
-  (let []
-    (fn [n] 
-      [:button {:on-click
-                (fn []
-                  (reset! events (paxos-sim 3)))}
-       "Paxos events"])))
-
-(defn reset-server-positions-button []
-  (let []
-    (fn [n] 
-      [:button {:on-click
-                (fn []
-                  (reset! server-positions nil))}
-       "Reset Server Positions"])))
 
 
 (defn prefixes [path]
@@ -790,35 +704,38 @@
           [trace-upload traces-local]])])))
 
 (defonce debug-display-state (reagent/atom nil))
+(defonce debugger (make-debugger debug-display-state))
+
+(defn debugger-status-display [{:keys [status servers]}]
+  [:div {:style {:display "inline"}}
+   "Debugger "
+   (if (or (not status) (= status :processing) (= (count servers) 0))
+     [:div {:class "spinner-border spinner-border-sm"}
+      [:span {:class "sr-only"} "Loading..."]])])
+
 
 (defn debug-display []
-  (let [st debug-display-state
-        debugger (make-debugger st)]
-    (fn []
-      (debug-render "debug display")
-      [:div {:style {:position "absolute" :top 5 :right 100 :text-align "right"}}
-       [:div {:style {:border "1px solid black"}}
-        (if @debug-display-state
-          [:div 
-           [:span "Servers: " (clojure.string/join "," (:servers @st))]
-           [:br]
-           (if (= (:status @st) :processing) "Processing..." "Ready")
-           [:br]
-           (when (and (not (:started @st)) (not (empty? (:servers @st))))
-             [:div
-              [:a {:href "#"
-                   :on-click (fn []
-                               (reset! events debugger)
-                               (do-next-event {:type :start}))}
-               "Debug!"]
-              [:br]
-              (when-let [trace (:trace @st)]
-                [:a {:href "#"
-                     :on-click (fn []
-                                 (reset! events debugger)
-                                 (do-next-event {:type :trace :trace trace}))}
-                 "Debug trace"])])]
-          [:span "Waiting for connection to server..."])]])))
+  (let [st @debug-display-state]
+    (debug-render "debug display")
+    [b/Nav {:navbar true}
+     [b/UncontrolledDropdown {:nav true :navbar true}
+      [b/DropdownToggle {:caret false :nav true :navbar true}
+       [debugger-status-display st]]
+      [b/DropdownMenu {:right true}
+       [b/DropdownItem {:header true}
+        (str "Connections: " (clojure.string/join "," (:servers st)))]
+       [b/DropdownItem {:disabled (or (:started st) (empty? (:servers st)))
+                        :on-click (fn []
+                                    (reset! events debugger)
+                                    (do-next-event {:type :start}))}
+        "Debug system"]
+       [b/DropdownItem {:disabled (or (:started st)
+                                      (empty? (:servers st))
+                                      (not (:trace st)))
+                        :on-click (fn []
+                                    (reset! events debugger)
+                                    (do-next-event {:type :trace :trace (:trace st)}))}
+        "Debug system with trace"]]]]))
 
 
 (defn main-window []
@@ -915,22 +832,47 @@
                              (do-next-event {:type :run-until :pred pred})))}
       "Run"]]))
 
+(defn toggler [a]
+  (fn [] (swap! a not)))
+
+(defn navbar []
+  (reagent/with-let
+    [collapsed (reagent/atom true)]
+    [b/Navbar {:color "light" :light true :expand "md"}
+     [b/NavbarBrand [:img {:src "images/oddity.png" :height 30}]]
+     [b/NavbarToggler {:on-click (toggler collapsed)}]
+     [b/Collapse {:isOpen (not @collapsed) :navbar true}
+      [b/Nav {:navbar true :class "mr-auto"}
+       [b/UncontrolledDropdown {:nav true :navbar true}
+        [b/DropdownToggle {:caret true :nav true :navbar true} "Display"]
+        [b/DropdownMenu
+         [b/DropdownItem {:on-click
+                          (fn []
+                            (reset! server-positions nil))}
+          "Reset server positions"]]]
+       [b/NavItem
+        [b/NavLink {:href "#"
+                    :on-click
+                    (fn [] (do-next-event nil))
+                    :disabled (not @events)}
+         "Next event"]]]
+      (if (get-config :enable-debugger)
+        [debug-display])
+       ]]))
+
 (defn home-page []
   (fn []
     (debug-render "home page")
     [:div {:style {:position "relative"}}
-     [main-window]
-     [:br]
-     [next-event-button]
-     [reset-server-positions-button]
-     [run-until-controls]
-     ;[reset-events-button]
-     ;[paxos-events-button]
-     [history-view]
-     (if (get-config :enable-logging) [log-status])
-     (if (get-config :enable-traces) [trace-display])
-     (if (get-config :enable-debugger) [debug-display])
-     [inspector]]))
+     [navbar]
+     [:div {:style {:padding "10px"}}
+      [main-window]
+      [:br]
+      [run-until-controls]
+      [history-view]
+      (if (get-config :enable-logging) [log-status])
+      (if (get-config :enable-traces) [trace-display])
+      [inspector]]]))
 
 ;; -------------------------
 ;; Routes

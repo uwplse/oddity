@@ -15,7 +15,8 @@
    [:meta {:name "viewport"
            :content "width=device-width, initial-scale=1"}]
    (include-css (if (env :dev) "/css/site.css" "/css/site.min.css"))
-   (include-css "/css/fontawesome-all.min.css")])
+   (include-css "/css/fontawesome-all.min.css")
+   (include-css "https://maxcdn.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css")])
 
 (defn loading-page [config]
   (html5
