@@ -2,10 +2,15 @@
   (:require [oddity.util :refer [coerce-keys]]))
 
 (defn coerce-timeout [t]
-  (coerce-keys t [:body :type :to :raw]))
+  (assoc (coerce-keys t [:body :type :to :raw]) :msgtype "timeout"))
 
 (defn coerce-message [m]
-  (coerce-keys m [:body :type :to :from :raw]))
+  (assoc (coerce-keys m [:body :type :to :from :raw]) :msgtype "msg"))
+
+(defn coerce-message-or-timeout [m]
+  (if (= (:msgtype (coerce-keys m [:msgtype])) "msg")
+    (coerce-message m)
+    (coerce-timeout m)))
 
 (defn coerce-state-update [u]
   (coerce-keys u [:path :value]))

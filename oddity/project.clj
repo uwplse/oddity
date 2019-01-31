@@ -48,7 +48,9 @@
                  [reloaded.repl "0.2.4"]
                  [org.clojure/tools.cli "0.3.5"]
                  [clj-http "3.8.0"]
-                 [com.taoensso/tufte "2.0.1"]]
+                 [com.taoensso/tufte "2.0.1"]
+                 [instaparse "1.4.9"]
+                 [org.clojure/core.match "0.3.0-alpha5"]]
 
   :plugins [[lein-environ "1.0.2"]
             [lein-cljsbuild "1.1.5"]

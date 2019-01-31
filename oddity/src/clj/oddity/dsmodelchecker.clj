@@ -15,6 +15,8 @@
     (assoc-in state path value)))
 
 (defn apply-state-change [{:keys [timeouts messages states]} body delta]
+  (prn body)
+  (prn messages)
   (let [node-id (:to body)
         messages (if (= (:msgtype body) "msg")
                    (vec (remove-one #(= % body) messages))
@@ -72,17 +74,20 @@
   IState
   (restart! [this]
     (p :restart! 
-       (let [init-state (new-state (c/coerce-responses (p :restart-system! (restart-system! sys))))
+       (let [init-state (new-state (c/coerce-responses
+                                    (p :restart-system! (restart-system! sys))))
              prefix-state (reduce
                            (fn [st m]
-                             (apply-state-change st m (c/coerce-response (p :restart-send-message! (send-message! sys m)))))
-                           init-state (map c/coerce-message prefix))]
+                             (apply-state-change st m (c/coerce-response
+                                                       (p :restart-send-message!
+                                                          (send-message! sys m)))))
+                           init-state (map c/coerce-message-or-timeout prefix))]
          (->DSState sys prefix prefix-state))))
   (actions [this pred]
     (p :actions 
-       (let [timeout-actions (map (fn [t] {:deliver-timeout (assoc t :msgtype "timeout")})
+       (let [timeout-actions (map (fn [t] {:deliver-timeout t})
                                   (:timeouts state))
-             message-actions (map (fn [m] {:deliver-message (assoc m :msgtype "msg")})
+             message-actions (map (fn [m] {:deliver-message m})
                                   (:messages state))]
          (sort-actions pred (concat message-actions timeout-actions)))))
   (run-action! [this action]

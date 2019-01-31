@@ -3,6 +3,7 @@
                    [oddity.macros :refer [write-and-read-result]])
   (:require [oddity.event-source :refer [IEventSource]]
             [oddity.coerce :as c]
+            [oddity.frontend-util :refer [log]]
             [goog.string :as gs]
             [goog.string.format]
             [haslett.client :as ws]
@@ -45,7 +46,7 @@
   (merge m {:id  (or (get st :id) DEFAULT_ID) :msgtype type}))
 
 (defn make-msg [state action]
-  (.log js/console (gs/format "Making message for action: %s" action))
+  (log "Making message for action: %s" action)
   (case (:type action)
     :start {:msgtype "start" :id DEFAULT_ID}
     :timeout
@@ -262,7 +263,9 @@
                  (into trace [{"duplicate-message" (get t "deliver-message")} t]))
           (recur new-counts (rest remaining) (into trace [t])))))))
 
-(defn prefix-from-log [l] (rest (vec  l)))
+(defn prefix-from-log [l]
+  (log "Prefix from log %s" l)
+  (rest (vec l)))
 
 (defn debug-socket [state-atom]
   (let [in (chan) out (chan)]
@@ -295,7 +298,7 @@
                         (= (:type action) :trace)
                         (let [servers (get-in action [:trace "servers"])
                               trace (preprocess-trace (get-in action [:trace "trace"]))]
-                          (.log js/console (gs/format "Replaying trace: %s" trace))
+                          (log "Replaying trace: %s" trace)
                           (>! out (count trace))
                           (loop [remaining trace state st]
                             (when-not (empty? remaining)
@@ -304,7 +307,7 @@
                                 (let [msg (assoc (make-msg state action) :state-id (:remote-id state))
                                       event (make-event action res)
                                       state (update-state state msg event)]
-                                  (.log js/console (gs/format "Replay event %s" event))
+                                  (log "Replay event %s" event)
                                   (>! out [event state])
                                   (recur (rest remaining) state))))))
                         (= (:type action) :run-until)
@@ -321,7 +324,7 @@
                                       res (write-and-read-result to-server msg from-server)
                                       event (make-event action res)
                                       state (update-state state msg event)]
-                                  (.log js/console (gs/format "Replay event %s" event))
+                                  (log "Replay event %s" event)
                                   (>! out [event state])
                                   (recur (rest remaining) state))))))
                         (and (= (:type action) :reset) (get st :remote-id))
