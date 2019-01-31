@@ -608,9 +608,13 @@
                                  :base0F "#be643c"}}))
                     :data (clj->js value)}]
      [:br]
-     (doall (for [[name action] actions]
-              ^{:key name} [:button {:on-click (fn []
-                                                 (reset! inspect nil) (do-next-event action))} name]))]))
+     (when actions
+       [b/ButtonGroup
+        (doall (for [[name action] actions]
+                 ^{:key name} [b/Button {:color "secondary"
+                                         :on-click (fn []
+                                                 (reset! inspect nil) (do-next-event action))} name]))]
+       )]))
 
 (defn add-trace [trace-db name trace]
   (let [{:keys [trace servers]} trace]
@@ -953,7 +957,6 @@
   (reagent/render [current-page] (.getElementById js/document "app")))
 
 (defn keypress-handler [evt]
-  (log "Keypress handler: %s" @run-until-predicate-visible)
   (when (not @run-until-predicate-visible)
     (cond
       (= (.-keyCode evt) 110) (history-move-next)
