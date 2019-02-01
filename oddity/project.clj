@@ -113,20 +113,21 @@
 
   :repl-options {:init-ns user}
 
-  :profiles {:dev {:repl-options {:nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]}
+  :profiles {:dev {:repl-options {:nrepl-middleware [cider.piggieback/wrap-cljs-repl]}
 
                    :dependencies [[binaryage/devtools "0.9.4"]
                                   [ring/ring-mock "0.3.1"]
                                   [ring/ring-devel "1.6.1"]
                                   [prone "1.1.4"]
-                                  [figwheel-sidecar "0.5.15"]
-                                  [com.cemerick/piggieback "0.2.2"]
+                                  [figwheel-sidecar "0.5.18"]
+                                  [cider/piggieback "0.3.10"]
                                   [pjstadig/humane-test-output "0.8.2"]
                                   [org.clojure/test.check "0.9.0"]
-                                  [etaoin "0.2.9"]]
+                                  [etaoin "0.2.9"]
+                                  [nrepl "0.5.3"]]
 
                    :source-paths ["env/dev/clj"]
-                   :plugins [[lein-figwheel "0.5.15"]
+                   :plugins [[lein-figwheel "0.5.18"]
                              [org.clojure/tools.namespace "0.3.0-alpha4"
                               :exclusions [org.clojure/tools.reader]]
                              [refactor-nrepl "2.4.0-SNAPSHOT"
