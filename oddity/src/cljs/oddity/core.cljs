@@ -5,6 +5,7 @@
             [accountant.core :as accountant]
             [vomnibus.color-brewer :as cb]
             [oddity.circles :as c]
+            [oddity.modals :as modals]
             [baking-soda.core :as b]
             [oddity.event-source :as event-source]
             [oddity.util :refer [remove-one differing-paths fields-match]]
@@ -620,44 +621,48 @@
   (let [{:keys [trace servers]} trace]
     (conj trace-db {:name name :trace trace :servers servers :id (count trace-db)})))
 
-(defn trace-upload [traces]
-  (let [file (reagent/atom nil)]
-    (fn [after-post]
-      (debug-render "trace-upload")
-      [:div
-       (if @file
-         [:div
-          [:input#trace-name {:type "text"}]
-          [:button {:on-click
-                    (fn [] (swap! traces add-trace (.-value (get-element "trace-name"))
-                                  (js->clj (.parse js/JSON @file) :keywordize-keys true)))}
-           "Upload"]
-          [:button {:on-click #(reset! file nil)} "Cancel"]]
-         [:input {:type "file"
-                  :on-change (fn [t]
-                               (let [f (-> t (.-target) (.-files) (.item 0))
-                                     reader (js/FileReader.)
-                                     on-load (fn [e] (reset! file (-> e (.-target) (.-result))))]
-                                 (set! (.-onload reader) on-load)
-                                 (.readAsText reader f)))}])])))
+(defonce traces-local (local-storage (atom []) :traces))
+
+(defn trace-upload-modal [close]
+  (reagent/with-let [file (reagent/atom nil)
+                     file-loading (reagent/atom false)
+                     deserialize-error (reagent/atom nil)
+                     trace-name (reagent/atom nil)]
+    (debug-render "trace-upload")
+    [:span
+     [b/ModalHeader {:toggle close} "Upload trace"]
+     [b/ModalBody
+      [b/Form
+       [b/FormGroup
+        (when @file-loading
+          [:div {:class "spinner-border spinner-border-sm"}
+           [:span {:class "sr-only"} "Loading..."]])
+        [b/Input {:type "file"
+                  :on-change
+                  (fn [t]
+                    (let [f (-> t (.-target) (.-files) (.item 0))
+                          reader (js/FileReader.)
+                          on-load (fn [e] (reset! file (-> e (.-target) (.-result))))]
+                      (reset! file-loading true)
+                      (set! (.-onload reader) on-load)
+                      (.readAsText reader f)
+                      (reset! file-loading false)))}]]
+       [b/Input {:placeholder "Trace name" :value @trace-name
+                 :on-change (fn [e]
+                            (reset! trace-name (-> e .-target .-value)))}]]
+      [b/Button {:color "primary" :disabled (not @file)
+                 :on-click
+                 (fn []
+                   (swap! traces-local add-trace (.-value (get-element "trace-name"))
+                          (js->clj (.parse js/JSON @file) :keywordize-keys true))
+                   (close))}
+       "Upload"]]]))
+
+(defn trace-upload-modal-show [] (modals/show-modal trace-upload-modal))
 
 (defn make-trace [trace servers]
   (into [{:reset {:servers servers :messages {} :server-state {}}}] trace))
 
-(def default-traces
-  [{:name "Mutex"
-   :id 0
-   :servers ["0" "1"]
-   :trace [{:update-state [0 [["clock"] 2]] :send-messages [{:from 0 :to 1 :type "png" :body {:clock 2}}]}
-           {:update-state [0 [["req" "1"] 2]] :send-messages [{:from 0 :to 1 :type "req" :body {:clock 2}}]}
-           {:update-state [1 [["clock"] 2]] :send-messages [{:from 1 :to 0 :type "png" :body {:clock 2}}]}
-           {:update-state [1 [["req" "2"] 2]] :send-messages [{:from 1 :to 0 :type "req" :body {:clock 2}}]}
-           {:update-state [0 [["png" "2"] 2]] :deliver-message {:from 1 :to 0 :type "png" :body {:clock 2}}}
-           {:update-state [0 [["crit"] true]]}
-           {:update-state [1 [["png" "1"] 2]] :deliver-message {:from 0 :to 1 :type "png" :body {:clock 2}}}
-           {:update-state [1 [["crit"] true]]}]}])
-
-(defonce traces-local (local-storage (atom default-traces) :traces))
 
 (defn download [filename content & [mime-type]]
   (let [mime-type (or mime-type (str "text/plain;charset=" (.-characterSet js/document)))
@@ -677,6 +682,8 @@
     (reset! events (event-source/StaticEventSource. tr))
     (do-next-event nil)))
 
+
+
 (defn trace-display []
   (let [traces (reagent/atom @traces-local)
         fetch-traces (reset! traces @traces-local)
@@ -685,26 +692,23 @@
     (add-watch traces-local :copy-to-traces (fn [_ _ _ v] (reset! traces v)))
     (fn []
       (debug-render "trace-display")
-      [:div {:style {:position "absolute" :top 5 :left 5}}
-       [:a {:href "#" :on-click #(swap! expanded not)} (concat "Traces " (if @expanded "▼" "▶"))]
-       (when @expanded
-         [:div
-          [:ul
-           (doall
-            (for [{:keys [name trace id servers]} @traces]
-              ^{:key name} [:li
-                            [:a {:href "#"
-                                 :on-click #(switch-to-trace trace servers)}
-                             name]
-                            [:span " "]
-                            [:a {:href "#" :on-click #(download-trace trace servers)} "(download)"]
-                            [:span " "]
-                            [:a {:href "#" :on-click
-                                 (fn [] (swap! traces
-                                               #(vec (remove-one (partial fields-match
-                                                                          [:id] {:id id})
-                                                                 %))))} "(delete)"]]))]
-          [trace-upload traces-local]])])))
+      [b/UncontrolledDropdown {:nav true :navbar true}
+       [b/DropdownToggle {:caret true :nav true :navbar true} "Traces"]
+       [b/DropdownMenu
+        [b/DropdownItem {:on-click trace-upload-modal-show} "Upload"]
+        (doall
+         (for [{:keys [name trace id servers]} @traces]
+           ^{:key name}
+           [b/DropdownItem
+            [:a {:href "#" :on-click #(switch-to-trace trace servers)} name]
+            [:span " "]
+            [:a {:href "#" :on-click #(download-trace trace servers)} "(download)"]
+            [:span " "]
+            [:a {:href "#" :on-click
+                 (fn [] (swap! traces
+                               #(vec (remove-one (partial fields-match
+                                                          [:id] {:id id})
+                                                 %))))} "(delete)"]]))]])))
 
 
 
@@ -790,13 +794,6 @@
 (defn toggler [a]
   (fn [] (swap! a not)))
 
-(defonce run-until-predicate-visible (reagent/atom false))
-
-(defn run-until-predicate-show []
-  (reset! run-until-predicate-visible true))
-
-(defn run-until-predicate-hide []
-  (reset! run-until-predicate-visible false))
 
 (defparser predicate-parser
   "predicate = <whitespace> name path <whitespace> op <whitespace> value <whitespace>;
@@ -827,12 +824,11 @@
                 [:value value]]
                {:type :node-state :node node :path path :value value})))))
 
-(defn run-until-predicate-modal []
-  (reagent/with-let [toggle (toggler run-until-predicate-visible)
-                     predicate (reagent/atom "")]
-    [b/Modal {:isOpen @run-until-predicate-visible
-              :toggle toggle}
-     [b/ModalHeader {:toggle toggle} "Run until predicate matches"]
+(defn run-until-predicate-modal [close]
+  (log "predicate modal")
+  (reagent/with-let [predicate (reagent/atom "")]
+    [:span
+     [b/ModalHeader "Run until predicate matches"]
      [b/ModalBody
       [b/Form
        ;; I'd like this to be a b/Input instead of a textarea, but that
@@ -847,10 +843,12 @@
                                                   (not (some #{(:node parsed-pred)} (:servers @state))))
                    :on-click (fn []
                                (do-next-event {:type :run-until :pred parsed-pred})
-                               (run-until-predicate-hide))}
+                               (close))}
          "Run"])
-      [b/Button {:on-click run-until-predicate-hide :color "secondary"} "Cancel"]]]))
+      [b/Button {:on-click close :color "secondary"} "Cancel"]]]))
 
+(defn run-until-predicate-modal-show []
+  (modals/show-modal run-until-predicate-modal))
 
 (defn run-until-controls []
   (let [enabled (event-source/supports? @events :run-until)]
@@ -860,7 +858,7 @@
                         :class (when-not enabled "disabled")}
       "Run until"]
      [b/DropdownMenu {:disabled true}
-      [b/DropdownItem {:on-click run-until-predicate-show} "Predicate..."]]]))
+      [b/DropdownItem {:on-click run-until-predicate-modal-show} "Predicate..."]]]))
 
 (defonce debug-display-state (reagent/atom nil))
 (defonce debugger (make-debugger debug-display-state))
@@ -910,7 +908,9 @@
          [b/DropdownItem {:on-click
                           (fn []
                             (reset! server-positions nil))}
-          "Reset server positions"]]]]
+          "Reset server positions"]]]
+       (when (get-config :enable-traces)
+        [trace-display])]
       [b/Nav {:navbar true :class "mx-auto"}
        [b/NavItem
         [b/NavLink {:href "#"
@@ -919,23 +919,21 @@
                     :disabled (not @events)}
          "Next event"]]
        [run-until-controls]]
-      
-      (if (get-config :enable-debugger)
+      (when (get-config :enable-debugger)
         [debug-display])
-       ]]))
+      ]]))
 
 (defn home-page []
   (fn []
     (debug-render "home page")
     [:div {:style {:position "relative"}}
-     [run-until-predicate-modal]
+     [modals/modal]
      [navbar]
      [:div {:style {:padding "10px"}}
       [main-window]
       [:br]
       [history-view]
       (if (get-config :enable-logging) [log-status])
-      (if (get-config :enable-traces) [trace-display])
       [inspector]]]))
 
 ;; -------------------------
@@ -957,7 +955,7 @@
   (reagent/render [current-page] (.getElementById js/document "app")))
 
 (defn keypress-handler [evt]
-  (when (not @run-until-predicate-visible)
+  (when (not (modals/modal-showing))
     (cond
       (= (.-keyCode evt) 110) (history-move-next)
       (= (.-keyCode evt) 112) (history-move-previous))))
