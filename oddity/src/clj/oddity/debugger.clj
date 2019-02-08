@@ -98,7 +98,7 @@
                     (pmap
                      (fn [[server socket]]
                        (do 
-                         (s/put! socket {:msgtype "start"})
+                         (s/put! socket {:msgtype "start" :to server})
                          [server @(s/take! socket)]))
                      (get-in (st dbg) [:sessions id :sockets])))))
 
