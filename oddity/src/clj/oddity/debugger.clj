@@ -95,7 +95,7 @@
 
 (defn send-start [dbg id]
   (combine-returns (doall
-                    (pmap
+                    (map ; TODO: use pmap and disallow multiple nodes w/ same socket
                      (fn [[server socket]]
                        (do 
                          (s/put! socket {:msgtype "start" :to server})
