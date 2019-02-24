@@ -8,7 +8,12 @@
                  [ring-server "0.4.0"]
                  [reagent "0.7.0"
                   :exclusions [cljsjs/react cljsjs/react-dom]]
-                 [cljsjs/react-transition-group "1.1.3-0"]
+                 [cljsjs/react-transition-group "2.4.0-0"
+                  :exclusions [cljsjs/react cljsjs/react-dom]]
+                 [cljsjs/react-popper "0.10.4-0"
+                  :exclusions [cljsjs/react cljsjs/react-dom]]
+                 [baking-soda "0.2.0"
+                  :exclusions [cljsjs/react cljsjs/react-dom]]
                  [reagent-utils "0.2.1"]
                  [ring "1.6.1"]
                  [ring/ring-defaults "0.3.0"]
@@ -42,7 +47,10 @@
                  [org.clojure/tools.namespace "0.2.11"]
                  [reloaded.repl "0.2.4"]
                  [org.clojure/tools.cli "0.3.5"]
-                 [clj-http "3.8.0"]]
+                 [clj-http "3.8.0"]
+                 [com.taoensso/tufte "2.0.1"]
+                 [instaparse "1.4.9"]
+                 [org.clojure/core.match "0.3.0-alpha5"]]
 
   :plugins [[lein-environ "1.0.2"]
             [lein-cljsbuild "1.1.5"]
@@ -82,8 +90,8 @@
               :output-dir "target/prod/cljs-tmp"
               :optimizations :advanced
               :pretty-print  false
-              :foreign-libs [{:file "src//js/bundle.js"
-                              :provides ["cljsjs.react" "cljsjs.react.dom" "webpack.bundle"]}]}
+              :foreign-libs [{:file "src/js/bundle.js"
+                              :provides ["cljsjs.react" "cljsjs.react.dom" "react" "react_dom" "webpack.bundle"]}]}
               }
             :dev
             {:source-paths ["src/cljs" "src/cljc" "env/dev/cljs"]
@@ -96,8 +104,8 @@
               :source-map true
               :optimizations :none
               :pretty-print  true
-              :foreign-libs [{:file "src//js/bundle.js"
-                              :provides ["cljsjs.react" "cljsjs.react.dom" "webpack.bundle"]}]}
+              :foreign-libs [{:file "src/js/bundle.js"
+                              :provides ["cljsjs.react" "cljsjs.react.dom" "react" "react_dom" "webpack.bundle"]}]}
              }}}
 
   :figwheel
@@ -105,20 +113,21 @@
 
   :repl-options {:init-ns user}
 
-  :profiles {:dev {:repl-options {:nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]}
+  :profiles {:dev {:repl-options {:nrepl-middleware [cider.piggieback/wrap-cljs-repl]}
 
                    :dependencies [[binaryage/devtools "0.9.4"]
                                   [ring/ring-mock "0.3.1"]
                                   [ring/ring-devel "1.6.1"]
                                   [prone "1.1.4"]
-                                  [figwheel-sidecar "0.5.15"]
-                                  [com.cemerick/piggieback "0.2.2"]
+                                  [figwheel-sidecar "0.5.18"]
+                                  [cider/piggieback "0.3.10"]
                                   [pjstadig/humane-test-output "0.8.2"]
                                   [org.clojure/test.check "0.9.0"]
-                                  [etaoin "0.2.9"]]
+                                  [etaoin "0.2.9"]
+                                  [nrepl "0.5.3"]]
 
                    :source-paths ["env/dev/clj"]
-                   :plugins [[lein-figwheel "0.5.15"]
+                   :plugins [[lein-figwheel "0.5.18"]
                              [org.clojure/tools.namespace "0.3.0-alpha4"
                               :exclusions [org.clojure/tools.reader]]
                              [refactor-nrepl "2.4.0-SNAPSHOT"

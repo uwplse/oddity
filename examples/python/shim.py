@@ -103,6 +103,7 @@ class Node(object):
 
     def _register(self, raddr, rport):
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         self._sock.connect((raddr, rport))
         send(self._sock, {'msgtype': 'register', 'name': self._name})
         resp = recv(self._sock)

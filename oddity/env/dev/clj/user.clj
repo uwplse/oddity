@@ -10,7 +10,8 @@
             [ring.middleware.file :refer [wrap-file]]
             [system.components.middleware :refer [new-middleware]]
             [figwheel-sidecar.repl-api :as figwheel]
-            [clojure.java.jdbc :as sql :refer [query]]))
+            [clojure.java.jdbc :as sql :refer [query]]
+            [taoensso.tufte :as p]))
 
 
 (defn debug-middleware [handler debug]

@@ -1,10 +1,11 @@
 (ns oddity.modelchecker
   (:require
-   [clojure.core.async :refer [go >!! <!! chan]]))
+   [clojure.core.async :refer [go >!! <!! chan]]
+   [taoensso.tufte :refer [p]]))
 
 (defprotocol IState
   (restart! [this] "Reset the state to the beginning of time")
-  (actions [this] "Possible next actions in this state")
+  (actions [this pred] "Possible next actions in this state (sorted based on pred)")
   (run-action! [this action] "Run action")
   (matches? [this pred] "Does this state match a predicate?"))
 
@@ -13,17 +14,20 @@
     (= a (take (count a) b))
     false))
 
-(defn new-actions [state current]
-  (map #(conj current %) (actions state)))
+(defn new-actions [pred state current]
+  (vec (map #(conj current %) (actions state pred))))
 
 (defn dfs
   ([state pred max-depth] (dfs state pred max-depth 3))
   ([state pred max-depth delta-depth]
-   (loop [state state
+   (loop [state (restart! state)
           depth delta-depth
-          worklist (new-actions state [])
+          worklist (new-actions pred state [])
           next-worklist ()
-          current []]
+          current []
+          n-explored 0]
+     (when (= (mod n-explored 100) 0)
+       (prn n-explored))
      (cond
        (and (empty? worklist)
             (or (empty? next-worklist)
@@ -31,7 +35,9 @@
        {:result :not-found}
        
        (empty? worklist)
-       (recur state (+ depth delta-depth) next-worklist () current)
+       (do
+         (prn "Incrementing depth")
+         (recur state (+ depth delta-depth) next-worklist () current (inc n-explored)))
 
        :else
        (let [next (first worklist)]
@@ -39,16 +45,18 @@
            (let [state (reduce run-action! state (drop (count current) next))]
              (if (matches? state pred)
                {:result :found :trace next :state state}
-               (let [acs (new-actions state next)]
+               (let [acs (new-actions pred state next)]
                  (if (< (count next) depth)
                    (recur state
                           depth
-                          (concat acs (rest worklist))
+                          (concat acs (vec (rest worklist)))
                           next-worklist
-                          next)
+                          next
+                          (inc n-explored))
                    (recur state
                           depth
-                          (rest worklist)
-                          (concat next-worklist acs)
-                          next)))))
-           (recur (restart! state) depth worklist next-worklist [])))))))
+                          (vec (rest worklist))
+                          (vec (concat next-worklist acs))
+                          next
+                          (inc n-explored))))))
+           (recur (restart! state) depth worklist next-worklist [] (inc n-explored))))))))
