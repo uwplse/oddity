@@ -1,0 +1,6 @@
+[oddity]
+address="10.0.2.2:4343"
+
+[nodes]
+pinger="./pinger 8001 8002"
+ponger="./ponger 8002 8001"
