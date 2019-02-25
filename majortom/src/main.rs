@@ -11,6 +11,8 @@ extern crate bincode;
 extern crate byteorder;
 #[macro_use]
 extern crate failure;
+//#[macro_use]
+//extern crate failure_derive;
 #[macro_use]
 extern crate log;
 extern crate fern;
@@ -73,7 +75,8 @@ fn main() {
     let mut handlers = Handlers::new(config.nodes);
 
     // set up oddity connection
-    let mut oddity = OddityConnection::new(config.oddity, &mut handlers);
+    let mut oddity = OddityConnection::new(config.oddity, &mut handlers)
+        .expect("Oddity initialization failed");
 
     oddity.run().expect("Error");
 }

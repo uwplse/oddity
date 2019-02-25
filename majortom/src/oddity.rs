@@ -9,6 +9,7 @@ use serde::Serialize;
 use byteorder::{NetworkEndian,ReadBytesExt,WriteBytesExt};
 use std::net::TcpStream;
 use failure::Error;
+use failure::ResultExt;
 use crate::config::OddityConfig;
 use crate::ptrace_handlers::Handlers;
 use crate::data::*;
@@ -19,17 +20,14 @@ pub struct OddityConnection<'a> {
 }
 
 impl<'a> OddityConnection<'a> {
-    pub fn new(config: OddityConfig, handlers: &'a mut Handlers) -> Self {
+    pub fn new(config: OddityConfig, handlers: &'a mut Handlers) -> Result<Self, Error> {
         let address = config.address.unwrap_or(String::from("localhost:4343"));
-        if let Ok(connection) = TcpStream::connect(address) {
-            Self {
-                connection: connection,
-                handlers: handlers
-            }
-        }
-        else {
-            panic!("Couldn't connect to Oddity server");
-        }
+        let connection = TcpStream::connect(address)
+            .context("Could not connect to Oddity server")?;
+        Ok(Self {
+            connection: connection,
+            handlers: handlers
+        })
     }
 
     fn read(&mut self) -> Result<json::Value, Error> {
@@ -71,8 +69,10 @@ impl<'a> OddityConnection<'a> {
             "names": servers
         }))?;
         let resp = self.read()?;
-        if !resp["ok"].as_bool().expect("malformed response") {
-            bail!("registration failed");
+        match resp["ok"].as_bool() {
+            Some(true) => (),
+            Some(false) => bail!("Registration failed"),
+            None => bail!("Malformed registration response")
         }
         trace!("Connected to Oddity server");
         loop {
@@ -81,15 +81,15 @@ impl<'a> OddityConnection<'a> {
             trace!("Got request from Oddity server: {:?}", req);
             let quit = match req {
                 Request::Start {to} => {
-                    self.handlers.handle_start(to, &mut response);
+                    self.handlers.handle_start(to, &mut response)?;
                     false
                 },
                 Request::Message(m) => {
-                    self.handlers.handle_message(m, &mut response);
+                    self.handlers.handle_message(m, &mut response)?;
                     false
                 },
                 Request::Timeout(t) => {
-                    self.handlers.handle_timeout(t, &mut response);
+                    self.handlers.handle_timeout(t, &mut response)?;
                     false
                 },
                 Request::Quit {} => true
