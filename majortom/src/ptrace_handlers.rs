@@ -103,6 +103,7 @@ enum Syscall {
     ArchPrctl,
     Access(String),
     Open(String),
+    Stat,
     Fstat(i32, File),
     MMap(i32, Option<File>),
     MUnmap,
@@ -307,6 +308,7 @@ impl TracedProcess {
                     bail!("close() called on unknown file")
                 }
             }
+            4 => Ok(Syscall::Stat),
             5 => { //fstat()
                 let fd = regs.rdi as i32;
                 if let Some(file) = self.files.get(&fd) {
