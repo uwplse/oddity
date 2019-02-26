@@ -45,10 +45,8 @@ int main(int argc, char** argv) {
 
   sleep(5);
   while(1) {
-    printf("sending ping\n");
     sendto(sockfd, "ping", 5, 0, themres->ai_addr, themres->ai_addrlen);
     pings_sent++;
-    printf("receiving pong\n");
     recvfrom(sockfd, buf, 5, 0, &from, &fromsize);
     pongs_received++;
   }

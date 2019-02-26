@@ -43,10 +43,8 @@ int main(int argc, char** argv) {
   socklen_t fromsize = sizeof(from);
   
   while(1) {
-    printf("receiving ping\n");
     recvfrom(sockfd, buf, 5, 0, &from, &fromsize);
     pings_received++;
-    printf("sending pong\n");
     sendto(sockfd, "pong", 5, 0, themres->ai_addr, themres->ai_addrlen);
     pongs_sent++;
   }
