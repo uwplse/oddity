@@ -32,4 +32,10 @@ fn test_simple() {
         assert_eq!(response.cleared_timeouts.len(), 0);
         message = response.messages.pop().unwrap();
     }
+
+    // restart, see that it sets a timeout again
+    handlers.handle_start("pinger".to_string(), &mut response).unwrap();
+    assert_eq!(response.timeouts.len(), 1);
+    assert_eq!(response.messages.len(), 0);
+    assert_eq!(response.cleared_timeouts.len(), 0);
 }
