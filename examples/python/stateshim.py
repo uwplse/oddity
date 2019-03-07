@@ -90,6 +90,7 @@ class Node(object):
                 self.timeout_handler(self._name, msg['type'], msg['body'], ret)
             elif msg['msgtype'] == 'start':
                 print "Got start"
+                ret.state = {}
                 self.start_handler(self._name, ret)
             elif msg['msgtype'] == 'quit':
                 print "Got quit"
