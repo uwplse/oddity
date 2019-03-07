@@ -98,6 +98,10 @@
   (swap! state (fn [s]
                  (assoc-in s (concat [:server-state id] path) val))))
 
+(defn reset-server-state [id new-state]
+  (swap! state (fn [s]
+                 (assoc-in s (concat [:server-state id]) new-state))))
+
 (defn update-server-log [id updates]
   (swap! state update-in [:server-log id] #(vec (conj % updates))))
 
@@ -162,7 +166,7 @@
           (let [id (name id)]
             (log "Updating server %s to state %s" id new-state)
             (let [updates (differing-paths (get-in @state [:server-state id]) new-state)]
-              (doseq [[path val] updates] (update-server-state id path val))
+              (reset-server-state id new-state)
               (update-server-log id updates)))))
       ;; process send messages
       (when-let [ms (:send-messages ev)]
