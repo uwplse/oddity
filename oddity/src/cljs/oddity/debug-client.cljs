@@ -136,7 +136,7 @@
   (case (:type action)
     :start
     (let [responses (get res "responses")
-          servers (keys responses)
+          servers (sort (keys responses))
           merged (merge-events (for [[server-id response] responses]
                                  (process-single-response server-id response)))]
       ;(prn responses)

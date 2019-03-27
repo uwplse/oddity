@@ -59,7 +59,7 @@
 
 (defonce events (reagent/atom nil))
 (defonce state (reagent/atom nil))
-(defonce server-positions (reagent/atom nil))
+(defonce server-positions (local-storage (reagent/atom {}) :server-positions))
 (defonce event-history (reagent/atom nil))
 (defonce selected-event-path (reagent/atom []))
 (defonce inspect (reagent/atom nil))
@@ -233,6 +233,10 @@
     (let [index (.indexOf (:servers state) id)
           angle (server-angle state index)]
       (c/angle server-circle angle))))
+
+(defn reset-server-positions [state]
+  (swap! server-positions
+         #(reduce (fn [m k] (dissoc m k)) % (:servers state))))
 
 (defn message [status state index message inbox-loc static]
   (let [mouse-over (reagent/atom false)]
@@ -911,7 +915,7 @@
         [b/DropdownMenu
          [b/DropdownItem {:on-click
                           (fn []
-                            (reset! server-positions nil))}
+                            (reset-server-positions @state))}
           "Reset server positions"]]]
        (when (get-config :enable-traces)
         [trace-display])]
