@@ -150,7 +150,7 @@
         resp (cond
                (= "servers" (get msg "msgtype"))
                (into {} (for [[id s] (:sessions (st dbg))]
-                          [id {:servers (keys (get s :sockets)) :trace (get s :trace)}]))
+                          [id {:servers (sort (keys (get s :sockets))) :trace (get s :trace)}]))
                (= "start" (get msg "msgtype")) (send-start dbg (get msg "id"))
                (= "reset" (get msg "msgtype")) (send-reset dbg (get msg "id") (get msg "log"))
                (= "run-until" (get msg "msgtype"))
