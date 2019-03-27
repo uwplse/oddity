@@ -76,7 +76,7 @@
 
 
 (defn non-propagating-event-handler [f]
-  (fn [e] (f e) (.preventDefault e) (.stopPropagation e)))
+  (fn [e] (f e) (.preventDefault e) (.stopPropagation e) false))
 
 (defn add-message [m]
   (let [id (:message-id-counter (swap! state update-in [:message-id-counter] inc))
