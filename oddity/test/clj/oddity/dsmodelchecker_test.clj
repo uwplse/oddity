@@ -13,6 +13,15 @@
     (is (= (:messages res) [{:to "nodeB" :type "mA" :body "B" :from "A"}]))
     (is (= (:states res) {"A" {"field" {"subfield" "value"}}}))))
 
+(deftest new-state-with-raw-state-test
+  (let [res (new-state {:responses [["A" {:set-timeouts [{:type "tA" :body "B"}]
+                                          :send-messages [{:type "mA" :body "B" :to "nodeB"}]
+                                          :states {"A" {"field" {"subfield" "value"}} "B" {"otherfield" "othervalue"}}}]]})]
+    (is (= (:timeouts res) [{:to "A" :type "tA" :body "B"}]))
+    (is (= (:messages res) [{:to "nodeB" :type "mA" :body "B" :from "A"}]))
+    (is (= (:states res) {"A" {"field" {"subfield" "value"}}}))))
+
+
 (deftest state-matches?-test
   (is (state-matches? {:type :node-state :node "A" :path ["field" "subfield"] :value "val"}
                       {:states {"A" {"field" {"subfield" "val"}}}}))
@@ -34,8 +43,8 @@
                          [{:deliver-timeout {:msgtype "timeout" :to "B"}}
                           {:deliver-message {:msgtype "msg"}}
                           {:deliver-timeout {:msgtype "timeout" :to "A"}}])
-           [{:deliver-message {:msgtype "msg"}}
-            {:deliver-timeout {:msgtype "timeout" :to "A"}}
+           [{:deliver-timeout {:msgtype "timeout" :to "A"}}
+            {:deliver-message {:msgtype "msg"}}
             {:deliver-timeout {:msgtype "timeout" :to "B"}}]))))
 
 (defn response [timeouts messages updates]

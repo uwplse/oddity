@@ -46,6 +46,10 @@
 (defn fields-match [fields m1 m2]
   (every? #(= (get m1 %) (get m2 %)) fields))
 
-(defn coerce-keys [m ks]
-  (into {} (map (fn [k] [k (or (get m k) (get m (name k)))]) ks)))
+(defn coerce-keys
+  ([m ks] (coerce-keys m ks {}))
+  ([m ks translate]
+   (into {} (concat (map (fn [k] [k (or (get m k) (get m (name k)))]) ks)
+                    (map (fn [[k-to k-from]] [k-to (or (get m k-to) (get m (name k-to)) (get m k-from))])
+                         translate)))))
 

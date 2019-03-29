@@ -14,22 +14,23 @@
   (let [{path :path value :value} update]
     (assoc-in state path value)))
 
-(defn apply-state-change [{:keys [timeouts messages states]} body delta]
-  (prn body)
-  (prn messages)
+(defn apply-state-change [{current-states :states :keys [timeouts messages]} body delta]
   (let [node-id (:to body)
         messages (if (= (:msgtype body) "msg")
                    (vec (remove-one #(= % body) messages))
                    messages)
-        {:keys [cleared-timeouts set-timeouts send-messages state-updates]} delta
-        cleared-timeouts (map #(assoc % :to node-id) cleared-timeouts)
-        set-timeouts (map #(assoc % :to node-id) set-timeouts)
-        send-messages (map #(assoc % :from node-id) send-messages)
-        state (get states node-id)]
+        {:keys [cleared-timeouts set-timeouts send-messages state-updates state-id states]} delta
+        cleared-timeouts (filter #(= (:to %) node-id) cleared-timeouts)
+        set-timeouts (filter #(= (:to %) node-id) set-timeouts)
+        send-messages (filter #(= (:from %) node-id) send-messages)
+        state (get current-states node-id)]
     {:timeouts (into (vec (remove #(some #{%} cleared-timeouts) timeouts)) set-timeouts)
      :messages (into messages send-messages)
-     :states (assoc states node-id
-                    (reduce apply-state-update state state-updates))}))
+     :states (if states
+               (assoc current-states node-id (get states node-id))
+               (assoc current-states node-id
+                      (reduce apply-state-update state state-updates)))
+     :state-id state-id}))
 
 (defn new-state [restart-response]
   (let [deltas (:responses restart-response)]
@@ -48,19 +49,20 @@
 (defn from? [h action]
   (= (:from action) h))
 
+(defn action-priority [action node]
+  (cond
+    (and (message? action) (to? node action)) 0
+    (and (message? action) (from? node action)) 1
+    (to? node action) 2
+    (message? action) 3
+    :default 4))
+
 (defn sort-actions [pred actions]
   (let [node (case (:type pred) :node-state (:node pred))]
     (sort (fn [a1 a2]
             (let [a1 (or (:deliver-timeout a1) (:deliver-message a1))
                   a2 (or (:deliver-timeout a2) (:deliver-message a2))]
-              (cond
-                (and (message? a1) (timeout? a2)) true
-                (and (message? a2) (timeout? a1)) false
-                (to? node a1) true
-                (to? node a2) false
-                (from? node a1) true
-                (from? node a2) false
-                :default false)))
+              (<= (action-priority a1 node) (action-priority a2 node))))
           actions)))
 
 (defn state-matches? [pred state]
@@ -88,12 +90,13 @@
        (let [timeout-actions (map (fn [t] {:deliver-timeout t})
                                   (:timeouts state))
              message-actions (map (fn [m] {:deliver-message m})
-                                  (:messages state))]
-         (sort-actions pred (concat message-actions timeout-actions)))))
+                                  (:messages state))
+             actions (sort-actions pred (concat message-actions timeout-actions))]
+         actions)))
   (run-action! [this action]
     (p :run-action 
        (let [action (or (:deliver-timeout action) (:deliver-message action))
-             response (c/coerce-response (send-message! sys action))
+             response (c/coerce-response (send-message! sys (assoc action :state-id (:state-id state))))
              state (apply-state-change state action response)]
          (->DSState sys prefix state))))
   (matches? [this pred]
