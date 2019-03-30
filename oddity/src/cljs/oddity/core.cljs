@@ -86,7 +86,7 @@
 (defn set-timeout [t]
   (let [id (:timeout-id-counter (swap! state update-in [:timeout-id-counter] inc))
         t (merge t {:id id})]
-    (log "Adding %s to %s" t (get-in @state [:timeouts (:to t)]))
+    ;(log "Adding %s to %s" t (get-in @state [:timeouts (:to t)]))
     (swap! state update-in [:timeouts (:to t)] #(vec (conj % t)))))
 
 (defn clear-timeout [id t]
@@ -164,7 +164,7 @@
       (when-let [state-dumps (:states ev)]
         (doseq [[id new-state] state-dumps]
           (let [id (name id)]
-            (log "Updating server %s to state %s" id new-state)
+            ;(log "Updating server %s to state %s" id new-state)
             (let [updates (differing-paths (get-in @state [:server-state id]) new-state)]
               (reset-server-state id new-state)
               (update-server-log id updates)))))

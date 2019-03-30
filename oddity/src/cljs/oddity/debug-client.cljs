@@ -50,12 +50,12 @@
   (case (:type action)
     :start {:msgtype "start" :id DEFAULT_ID}
     :timeout
-    (if-let [remote-id (get (:timeout action) :remote-id)]
+    (if-let [remote-id (get (:timeout action) :timeout-id)]
       (make-debugger-msg state "timeout" {:timeout-id remote-id :to (:to (:timeout action))})
       (let [{:keys [to type body raw]} (:timeout action)]
         (make-debugger-msg state "timeout" {:to to :type type :body body :raw raw})))
     :message
-    (if-let [remote-id (get (:message action) :remote-id)]
+    (if-let [remote-id (get (:message action) :msg-id)]
       (make-debugger-msg state "msg" {:msg-id remote-id :to (:to (:message action))}) 
       (let [{:keys [from to type body raw]} (:message action)]
         (make-debugger-msg state "msg" {:to to :from from :type type :body body :raw raw})))
@@ -68,38 +68,28 @@
     :drop nil))
 
 (defn process-single-response [server-id response]
-  (let [remote-id (get response "@id")
+  (let [response (c/coerce-response response)
+        state-id (get response :state-id)
         update-states {server-id 
-                       (for [{path "path" value "value"}
-                             (get response "state-updates")]
+                       (for [{path :path value :value}
+                             (get response :state-updates)]
                          [path value])}
-        states (if (contains? response "states")
-                 {server-id (get-in response ["states" server-id])}
+        states (if (contains? response :states)
+                 {server-id (get-in response [:states server-id])}
                  {})
-        set-timeouts (for [pre-timeout (get response "set-timeouts")
-                           :when (= (get pre-timeout "to") server-id)
-                           :let [timeout {:remote-id (get pre-timeout "@id")
-                                          :to (get pre-timeout "to")
-                                          :type (get pre-timeout "type")
-                                          :body (get pre-timeout "body")
-                                          :raw (get pre-timeout "raw")}]]
+        set-timeouts (for [timeout (get response :set-timeouts)
+                           :when (= (get timeout :to) server-id)]
                        (assoc timeout :actions [["Fire" {:type :timeout :timeout timeout}]]))
-        clear-timeouts (for [{to "to" type "type" body "body"} (get response "cleared-timeouts")
+        clear-timeouts (for [{to :to type :type body :body} (get response :cleared-timeouts)
                              :when (= to server-id)]
                          [server-id {:to to :type type :body body}])
-        send-messages (for [pre-message (get response "send-messages")
-                            :when (= (get pre-message "from") server-id)
-                            :let [message {:remote-id (get pre-message "@id")
-                                           :from server-id
-                                           :to (get pre-message "to")
-                                           :type (get pre-message "type")
-                                           :body (get pre-message "body")
-                                           :raw (get pre-message "raw")}]]
+        send-messages (for [message (get response :send-messages)
+                            :when (= (get message :from) server-id)]
                         (assoc message :actions [["Deliver" {:type :message :message message}]
                                                  ["Duplicate" {:type :duplicate :message message}]
                                                  ["Drop" {:type :drop :message message}]]))]
     {:debug "yo"
-     :remote-id remote-id
+     :state-id state-id
      :states states
      :update-states update-states
      :set-timeouts set-timeouts
@@ -108,7 +98,7 @@
 
 (defn merge-events [events]
   {:debug "merged"
-   :remote-id (last (map :remote-id events))
+   :state-id (last (map :state-id events))
    :states (apply merge (map :states events))
    :update-states (apply merge (map :update-states events))
    :set-timeouts (mapcat :set-timeouts events)
@@ -129,8 +119,8 @@
         new-timeouts (map #(second (first (:actions %))) (:set-timeouts event))
         actions (remove nil? (concat actions new-messages new-timeouts))
         log (conj (vec log) msg)
-        remote-id (or (:remote-id event) (:remote-id state))]
-    {:actions actions :log log :remote-id remote-id}))
+        state-id (or (:state-id event) (:state-id state))]
+    {:actions actions :log log :state-id state-id}))
 
 (defn make-event [action res]
   (case (:type action)
@@ -151,16 +141,16 @@
       (assoc event :deliver-message deliver-message))
     :reset nil
     :duplicate
-    (let [{:keys [from to type body raw remote-id]} (:message action)
-          message-without-actions {:from from :to to :type type :body body :raw raw :remote-id remote-id}
+    (let [{:keys [from to type body raw msg-id]} (:message action)
+          message-without-actions {:from from :to to :type type :body body :raw raw :msg-id msg-id}
           message (assoc message-without-actions
                          :actions [["Deliver" {:type :message :message message-without-actions}]
                                    ["Duplicate" {:type :duplicate :message message-without-actions}]
                                    ["Drop" {:type :drop :message message-without-actions}]])]
       {:duplicate-message message :debug "duplicate"})
     :drop
-    (let [{:keys [from to type body raw remote-id]} (:message action)
-          message-without-actions {:from from :to to :type type :body body :raw raw :remote-id remote-id}]
+    (let [{:keys [from to type body raw msg-id]} (:message action)
+          message-without-actions {:from from :to to :type type :body body :raw raw :msg-id msg-id}]
       {:drop-message message-without-actions :debug "drop"})
 
     ))
@@ -168,58 +158,28 @@
 (defn get-action-and-res [servers trace-entry]
   (if-let [timeout (get trace-entry "deliver-timeout")]
     (let [action {:type :timeout
-                  :timeout {:remote-id (get timeout "@id")
-                            :to (get timeout "to")
-                            :type (get timeout "type")
-                            :body (get timeout "body")
-                            :raw (get timeout "raw")
-                            }}
+                  :timeout (c/coerce-timeout timeout)}
           res trace-entry]
       [action res]) ; handle timeout
     (if-let [message (get trace-entry "deliver-message")]
       (let [action {:type :message
-                    :message {:remote-id (get message "@id")
-                              :to (get message "to")
-                              :from (get message "from")
-                              :type (get message "type")
-                              :body (get message "body")
-                              :raw (get message "raw")
-                              }}
+                    :message (c/coerce-message message)}
             res trace-entry]
         [action res])
       (if-let [message (get trace-entry "duplicate-message")]
         (let [action {:type :duplicate
-                    :message {:remote-id (get message "@id")
-                              :to (get message "to")
-                              :from (get message "from")
-                              :type (get message "type")
-                              :body (get message "body")
-                              :raw (get message "raw")
-                              }}
+                    :message (c/coerce-message message)}
             res trace-entry]
           [action res])
         (if-let [message (get trace-entry "drop-message")]
           (let [action {:type :drop
-                        :message {:remote-id (get message "@id")
-                                  :to (get message "to")
-                                  :from (get message "from")
-                                  :type (get message "type")
-                                  :body (get message "body")
-                                  :raw (get message "raw")
-                                  }}
+                        :message (c/coerce-message message)}
             res trace-entry]
           [action res])
           (let [action {:type :start}
                 res {"responses" (into {} (for [server servers] [server trace-entry]))}]
             [action res]))) ; handle start
      )))
-
-(defn canonicalize-message [m]
-  (if (:from m)
-    (let [{:keys [from to type body raw]} m]
-      {:from from :to to :type type :body body :raw raw})
-    (let [{from "from" to "to" type "type" body "body" raw "raw"} m]
-      {:from from :to to :type type :body body :raw raw})))
 
 (defn dec-at-key [k m]
   (if k
@@ -232,9 +192,9 @@
     m))
 
 (defn message-diffs [trace-entry]
-  [(map canonicalize-message (get trace-entry "send-messages"))
+  [(map c/coerce-message (get trace-entry "send-messages"))
    (if-let [m (get trace-entry "deliver-message")]
-     (canonicalize-message m))
+     (c/coerce-message m))
    ])
 
 (defn delivered-before-sent [trace msg]
@@ -290,6 +250,7 @@
                                                   (get-in res [DEFAULT_ID "trace"]))
                                            (recur))
               in ([[st action]]
+                  (log "Got action: %s" action)
                   (let [action (or action (rand-nth (:actions st)))]
                     (do
                       (swap! state-atom assoc :status :processing)
@@ -304,7 +265,7 @@
                             (when-not (empty? remaining)
                               (let [t (first remaining)
                                     [action res] (get-action-and-res servers t)]
-                                (let [msg (assoc (make-msg state action) :state-id (:remote-id state))
+                                (let [msg (assoc (make-msg state action) :state-id (:state-id state))
                                       event (make-event action res)
                                       state (update-state state msg event)]
                                   (log "Replay event %s" event)
@@ -320,17 +281,17 @@
                           (loop [remaining trace state st]
                             (when-not (empty? remaining)
                               (let [action (first (get-action-and-res {} (first remaining)))]
-                                (let [msg (assoc (make-msg state action) :state-id (:remote-id state))
+                                (let [msg (assoc (make-msg state action) :state-id (:state-id state))
                                       res (write-and-read-result to-server msg from-server)
                                       event (make-event action res)
                                       state (update-state state msg event)]
                                   (log "Replay event %s" event)
                                   (>! out [event state])
                                   (recur (rest remaining) state))))))
-                        (and (= (:type action) :reset) (get st :remote-id))
+                        (and (= (:type action) :reset) (get st :state-id))
                         (>! out [nil st])
                         :else
-                        (let [msg (assoc (make-msg st action) :state-id (:remote-id st))
+                        (let [msg (assoc (make-msg st action) :state-id (:state-id st))
                               res (when (:msgtype msg)
                                     (write-and-read-result to-server msg from-server))
                               event (make-event action res)

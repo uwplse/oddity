@@ -5,13 +5,25 @@
 
 
 (deftest new-state-test
-  (let [res (new-state {:responses [["A" {:set-timeouts [{:type "tA" :body "B"}]
-                                          :send-messages [{:type "mA" :body "B" :to "nodeB"}]
+  (let [res (new-state {:responses [["A" {:set-timeouts [{:type "tA" :body "B" :to "A"}]
+                                          :send-messages [{:type "mA" :body "B" :to "nodeB"
+                                                           :from "A"}]
                                           :state-updates [{:path ["field" "subfield"]
                                                            :value "value"}]}]]})]
     (is (= (:timeouts res) [{:to "A" :type "tA" :body "B"}]))
     (is (= (:messages res) [{:to "nodeB" :type "mA" :body "B" :from "A"}]))
     (is (= (:states res) {"A" {"field" {"subfield" "value"}}}))))
+
+(deftest new-state-with-raw-state-test
+  (let [res (new-state {:responses [["A" {:set-timeouts [{:type "tA" :body "B" :to "A"}]
+                                          :send-messages [{:type "mA" :body "B" :to "nodeB"
+                                                           :from "A"}]
+                                          :states {"A" {"field" {"subfield" "value"}}
+                                                   "B" {"otherfield" "othervalue"}}}]]})]
+    (is (= (:timeouts res) [{:to "A" :type "tA" :body "B"}]))
+    (is (= (:messages res) [{:to "nodeB" :type "mA" :body "B" :from "A"}]))
+    (is (= (:states res) {"A" {"field" {"subfield" "value"}}}))))
+
 
 (deftest state-matches?-test
   (is (state-matches? {:type :node-state :node "A" :path ["field" "subfield"] :value "val"}
@@ -34,8 +46,8 @@
                          [{:deliver-timeout {:msgtype "timeout" :to "B"}}
                           {:deliver-message {:msgtype "msg"}}
                           {:deliver-timeout {:msgtype "timeout" :to "A"}}])
-           [{:deliver-message {:msgtype "msg"}}
-            {:deliver-timeout {:msgtype "timeout" :to "A"}}
+           [{:deliver-timeout {:msgtype "timeout" :to "A"}}
+            {:deliver-message {:msgtype "msg"}}
             {:deliver-timeout {:msgtype "timeout" :to "B"}}]))))
 
 (defn response [timeouts messages updates]
@@ -62,13 +74,14 @@
                               [{:path ["pings"] :value pings}])))))
       (restart-system! [this]
           (reset! st {"node1" {:timeouts 0 :pings 0} "node2" {:timeouts 0 :pings 0}})
-          {:responses [["node1" {:set-timeouts [{:type "timeout" :body {}}]
-                                 :send-messages [{:to "node2" :type "ping" :body {}}]
+          {:responses [["node1" {:set-timeouts [{:type "timeout" :body {} :to "node1"}]
+                                 :send-messages [{:to "node2" :type "ping" :body {}
+                                                  :from "node1"}]
                                  :state-updates [{:path ["timeouts"]
                                                   :value 0}
                                                  {:path ["pings"]
                                                   :value 0}]}]
-                       ["node2" {:set-timeouts [{:type "timeout" :body {}}]
+                       ["node2" {:set-timeouts [{:type "timeout" :body {} :to "node2"}]
                                  :send-messages []
                                  :state-updates [{:path ["timeouts"]
                                                   :value 0}

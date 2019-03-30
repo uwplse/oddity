@@ -123,8 +123,8 @@
 
 (defn run-model-checker [dbg id prefix pred opts]
   (let [st (model-checker-state-for dbg id prefix)
-        max-depth (get opts :max-depth 6)
-        delta-depth (get opts :delta-depth 3)
+        max-depth (get opts :max-depth 24)
+        delta-depth (get opts :delta-depth 6)
         timeout (get opts :timeout 10000)
         thunk (bound-fn [] (mc/dfs st pred max-depth delta-depth))
         task (FutureTask. thunk)
