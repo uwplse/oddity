@@ -7,6 +7,9 @@
             [haslett.format :as ws-fmt]
             [cljs.core.async :refer [put! take! chan <! >! timeout close!]]))
 
+
+(defonce session (.toString (random-uuid)))
+
 (defn log-socket [state-atom]
   (let [in (chan)]
     (go
@@ -40,7 +43,9 @@
                                         (recur nil)
                                         (prn (:error res)))))
                       :log (if userid
-                             (do (let [res (write-and-read-result to-server (assoc msg :userid userid)
+                             (do (let [res (write-and-read-result to-server
+                                                                  (assoc (assoc msg :userid userid)
+                                                                         :session session)
                                                                   from-server)]
                                    (if (:ok res)
                                      (recur userid)
