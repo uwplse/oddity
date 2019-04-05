@@ -785,20 +785,6 @@
      (nw-state @state false)]
     (finally (.removeEventListener js/window "resize" resize-handler))))
 
-(defn log-status []
-  (when (:connected @log-state)
-    [:div {:style {:position "absolute" :top 5 :left 5 :border "1px solid black"}}
-     (if (:userid @log-state)
-       [:a {:href "#" :on-click #(go (>! logger {:type :unregister}))} "Disable logging"]
-       [:div
-        [:span "User ID: "]
-        [:input#userid {:type "text"}]
-        [:button {:on-click (fn []
-                              (let [userid (.-value (get-element "userid"))]
-                                (go (>! logger {:type :register :userid userid}))))}
-         "Enable logging"]]
-       )]))
-
 (defn toggler [a]
   (fn [] (swap! a not)))
 
@@ -878,6 +864,35 @@
      [:div {:class "spinner-border spinner-border-sm"}
       [:span {:class "sr-only"} "Loading..."]])])
 
+;; (defn log-status []
+;;   (when (:connected @log-state)
+;;     [:div {:style {:position "absolute" :top 5 :left 5 :border "1px solid black"}}
+;;      (if (:userid @log-state)
+;;        [:a {:href "#" :on-click #(go (>! logger {:type :unregister}))} "Disable logging"]
+;;        [:div
+;;         [:span "User ID: "]
+;;         [:input#userid {:type "text"}]
+;;         [:button {:on-click (fn []
+;;                               (let [userid (.-value (get-element "userid"))]
+;;                                 (go (>! logger {:type :register :userid userid}))))}
+;;          "Enable logging"]]
+;;        )]))
+
+
+(defn log-display []
+  [b/UncontrolledDropdown {:nav true :navbar true}
+   [b/DropdownToggle {:caret true :nav true :navbar true} "Logging"]
+   [b/DropdownMenu
+    (if (:userid @log-state)
+      [b/DropdownItem {:on-click #(go (>! logger {:type :unregister}))} "Unregister"]
+      [:div 
+       [b/Form {:class "px-4"}
+        [b/Input {:type "text" :placeholder "username" :id "logger-userid"}]]
+       [b/DropdownItem {:on-click (fn []
+                                    (let [userid (.-value (get-element "logger-userid"))]
+                                      (go (>! logger {:type :register :userid userid}))))}
+        "Register"]])]])
+
 (defn debug-display []
   (let [st @debug-display-state]
     (debug-render "debug display")
@@ -917,6 +932,8 @@
                           (fn []
                             (reset-server-positions @state))}
           "Reset server positions"]]]
+       (when (and (get-config :enable-logging) (:connected @log-state))
+         [log-display])
        (when (get-config :enable-traces)
         [trace-display])]
       [b/Nav {:navbar true :class "mx-auto"}
@@ -941,7 +958,6 @@
       [main-window]
       [:br]
       [history-view]
-      (if (get-config :enable-logging) [log-status])
       [inspector]]]))
 
 ;; -------------------------
