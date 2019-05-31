@@ -217,10 +217,9 @@
 
 (defn server-color [state id]
   (let [nservers (count (:servers state))
-        index (.indexOf (:servers state) id)
-        colors (if (< 8 nservers)
-                 (nth server-colors nservers)
-                 cb/Dark2-8)]
+        colors-index (- (min (count server-colors) nservers) 1)
+        colors (nth server-colors colors-index)
+        index (mod (.indexOf (:servers state) id) (count colors))]
     (nth colors index)))
 
 (def transition-group (reagent/adapt-react-class js/ReactTransitionGroup.TransitionGroup))
