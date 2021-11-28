@@ -39,7 +39,7 @@
                  [cljsjs/filesaverjs "1.3.3-0"]
                  [alandipert/storage-atom "2.0.1"]
                  [haslett "0.1.0"]
-                 [aleph "0.4.4"]
+                 [aleph "0.4.6"]
                  [gloss "0.2.6"]
                  [manifold "0.1.6"]
                  [com.stuartsierra/component "0.3.2"]
@@ -50,11 +50,12 @@
                  [clj-http "3.8.0"]
                  [com.taoensso/tufte "2.0.1"]
                  [instaparse "1.4.9"]
-                 [org.clojure/core.match "0.3.0-alpha5"]]
+                 [org.clojure/core.match "0.3.0-alpha5"]
+                 [clj-jaxb/lein-xjc "0.1.1"]]
 
   :plugins [[lein-environ "1.0.2"]
             [lein-cljsbuild "1.1.5"]
-            [lein-asset-minifier "0.2.7"
+            [lein-asset-minifier "0.4.6"
              :exclusions [org.clojure/clojure]]
             [cljs-simple-cache-buster "0.2.1"]]
 
@@ -78,9 +79,7 @@
   :test-selectors {:default (complement :integration)
                    :integration :integration}
 
-  :minify-assets
-  {:assets
-   {"resources/public/css/site.min.css" "resources/public/css/site.css"}}
+  :minify-assets [[:css {:source "resources/public/css/site.css" :target "resources/public/css/site.min.css"}]]
 
   :cljsbuild
   {:builds {:prod
@@ -88,7 +87,7 @@
              :compiler
              {:output-to "target/prod/public/js/app.js"
               :output-dir "target/prod/cljs-tmp"
-              :optimizations :advanced
+              :optimizations :simple
               :pretty-print  false
               :foreign-libs [{:file "src/js/bundle.js"
                               :provides ["cljsjs.react" "cljsjs.react.dom" "react" "react_dom" "webpack.bundle"]}]}

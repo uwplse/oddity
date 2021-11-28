@@ -231,7 +231,7 @@
   (let [in (chan) out (chan)]
     (go
       (let [stream (loop []
-                     (let [conn (ws/connect "ws://localhost:5000/debug" {:format ws-fmt/json})]
+                     (let [conn (ws/connect "ws://localhost:5002/debug" {:format ws-fmt/json})]
                        (alt!
                          conn ([c] c)
                          (timeout 500) (recur))))]

@@ -3,7 +3,7 @@
 (defn default-config []
   {:port 3000
    :debugger-port 4343
-   :debugger-ws-port 5000
+   :debugger-ws-port 5002
    :logger-ws-port 5001
    :usage-log-url nil
    :logger-db-spec {:classname   "org.sqlite.JDBC"
