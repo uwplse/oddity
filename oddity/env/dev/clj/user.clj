@@ -24,7 +24,7 @@
      (handler request respond raise))))
 
 (def dev-config {:usage-log-url "http://localhost:6000/log"
-                 :enable-logging false :enable-debugger true :enable-traces false})
+                 :enable-logging true :enable-debugger true :enable-traces false})
 
 (defn dev-system []
   (assoc (app-system (merge (default-config) dev-config))

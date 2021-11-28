@@ -92,7 +92,11 @@
 (defn clear-timeout [id t]
   (log "Removing %s from %s" t (get-in @state [:timeouts id]))
   (swap! state update-in [:timeouts id]
-         #(vec (remove-one (partial fields-match [:to :type :body] t) %))))
+         #(vec (remove-one
+                (if (:unique-id t)
+                  (partial fields-match [:unique-id] t)
+                  (partial fields-match [:to :type :body :raw] t)) %)))
+  (log "did the thing"))
 
 (defn update-server-state [id path val]
   (swap! state (fn [s]
@@ -107,7 +111,7 @@
 
 (defn deliver-message [message]
   (swap! message-extra-add-drop-data assoc (select-keys message [:from :to :type :body]) :deliver)
-  (swap! state update-in [:messages (:to message)] #(vec (remove-one (partial fields-match [:from :to :type :body] message) %))))
+  (swap! state update-in [:messages (:to message)] #(vec (remove-one (partial fields-match [:from :to :type :body :raw] message) %))))
 
 (defn drop-message [message]
   (swap! message-extra-add-drop-data assoc (select-keys message [:from :to :type :body]) :drop)
@@ -238,7 +242,8 @@
          #(reduce (fn [m k] (dissoc m k)) % (:servers state))))
 
 (defn message [status state index message inbox-loc static]
-  (let [mouse-over (reagent/atom false)]
+  (let [clicked (reagent/atom false) ; to prevent duplicate clicks
+        ]
     (fn [status state index message inbox-loc static]
       (debug-render "message")
       (let [[inbox-loc-x inbox-loc-y] inbox-loc]
@@ -265,17 +270,19 @@
              }
          [:rect {:width 40 :height 30
                  :on-context-menu
-                 (when (not static)
+                 (when (and (not static) (not @clicked))
                    (non-propagating-event-handler (fn [])))
                  :on-mouse-down
-                 (when (not static)
+                 (when (and (not static) (not @clicked))
                    (fn [e]
                      (case (.-button e)
                        2 (do (reset! inspect {:x (+ inbox-loc-x 5) :y (+ inbox-loc-y (* index -40))
                                               :value (:body message)
                                               :actions (:actions message)})
                              (.preventDefault e) (.stopPropagation e))
-                       0 (when-let [[name action] (first (:actions message))] (do-next-event action)))))}]
+                       0 (when-let [[name action] (first (:actions message))]
+                           (reset! clicked true)
+                           (do-next-event action)))))}]
          [:text {:style {:pointer-events "none" :user-select "none"} :text-anchor "end"
                  :transform (translate -10 20)}
           (:type message)]]))))
@@ -283,7 +290,7 @@
 
 
 (defn timeout [status state index timeout inbox-loc static]
-  (let [mouse-over (reagent/atom false)]
+  (let [clicked (reagent/atom false)]
     (fn [status state index timeout inbox-loc static]
       (debug-render "timeout")
       (let [[inbox-loc-x inbox-loc-y] inbox-loc]
@@ -296,10 +303,10 @@
              :style {:transition (when (not static) "transform 0.5s ease-out")}
              }
          [:g {:on-context-menu
-              (when (not static)
+              (when (and (not static) (not @clicked))
                 (non-propagating-event-handler (fn [])))
               :on-mouse-down
-              (when (not static)
+              (when (and (not static) (not @clicked))
                 (fn [e]
                   (case (.-button e)
                     2 (do (reset! inspect {:x (+ inbox-loc-x 5) :y (+ inbox-loc-y (* index -40))

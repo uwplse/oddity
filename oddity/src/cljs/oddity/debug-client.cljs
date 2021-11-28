@@ -52,8 +52,9 @@
     :timeout
     (if-let [remote-id (get (:timeout action) :timeout-id)]
       (make-debugger-msg state "timeout" {:timeout-id remote-id :to (:to (:timeout action))})
-      (let [{:keys [to type body raw]} (:timeout action)]
-        (make-debugger-msg state "timeout" {:to to :type type :body body :raw raw})))
+      (let [{:keys [to type body raw unique-id]} (:timeout action)]
+        (make-debugger-msg state "timeout" {:to to :type type :body body :raw raw
+                                            :unique-id unique-id})))
     :message
     (if-let [remote-id (get (:message action) :msg-id)]
       (make-debugger-msg state "msg" {:msg-id remote-id :to (:to (:message action))}) 
@@ -80,9 +81,10 @@
         set-timeouts (for [timeout (get response :set-timeouts)
                            :when (= (get timeout :to) server-id)]
                        (assoc timeout :actions [["Fire" {:type :timeout :timeout timeout}]]))
-        clear-timeouts (for [{to :to type :type body :body} (get response :cleared-timeouts)
+        clear-timeouts (for [{to :to type :type body :body raw :raw unique-id :unique-id}
+                             (get response :cleared-timeouts)
                              :when (= to server-id)]
-                         [server-id {:to to :type type :body body}])
+                         [server-id {:to to :type type :body body :raw raw :unique-id unique-id}])
         send-messages (for [message (get response :send-messages)
                             :when (= (get message :from) server-id)]
                         (assoc message :actions [["Deliver" {:type :message :message message}]

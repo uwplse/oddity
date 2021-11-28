@@ -65,7 +65,7 @@ class HandlerReturn(object):
     
 def send(sock, obj):
     s = json.dumps(obj)
-    #print s
+    print s
     length = struct.pack('!I', len(s))
     sock.sendall(length+s)
 

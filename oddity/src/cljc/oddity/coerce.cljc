@@ -2,7 +2,7 @@
   (:require [oddity.util :refer [coerce-keys]]))
 
 (defn coerce-timeout [t]
-  (assoc (coerce-keys t [:body :type :to :raw :state-id] {:timeout-id "@id"}) :msgtype "timeout"))
+  (assoc (coerce-keys t [:body :type :to :raw :state-id :unique-id] {:timeout-id "@id"}) :msgtype "timeout"))
 
 (defn coerce-message [m]
   (assoc (coerce-keys m [:body :type :to :from :raw :state-id] {:msg-id "@id"}) :msgtype "msg"))

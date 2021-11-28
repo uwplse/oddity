@@ -13,7 +13,7 @@ class HandlerReturn(object):
         self.state = deepcopy(state)
         self._timeouts = []
         self._cleared_timeouts = []
-
+        
     def send(self, dst, type, body):
         self._messages.append({'from': self._name, 'to': dst, 'type': type, 'body': body})
             

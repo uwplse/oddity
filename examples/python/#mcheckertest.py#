@@ -2,7 +2,7 @@
 """
 
 import threading
-from stateshim import Node, Shim
+from shim import Node, Shim
 
 N_NODES = 2
 def next_node(name):
